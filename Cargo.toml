@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/cli",
+    "crates/gui",
+]
+
+# Dipendenze condivise: versioni stabili e compatibili tra loro.
+# Criterio: ultima versione stabile pienamente compatibile con lo stack,
+# non l'ultimissima release in assoluto.
+[workspace.dependencies]
+zstd = "0.13"
+chacha20poly1305 = "0.10"
+argon2 = "0.5"
+blake3 = "1.5"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+fastcdc = "3.1"
+serde = { version = "1", features = ["derive"] }
+bincode = "1.3"
+zeroize = { version = "1.8", features = ["derive"] }
+rand = "0.8"
+thiserror = "1"
+rayon = "1.10"
+reed-solomon-erasure = "6.0"
+
+[profile.release]
+opt-level = "z"      # binario compatto
+lto = true           # link-time optimization
+codegen-units = 1
+panic = "abort"
+strip = "symbols"    # rimuove i simboli dal binario di release

@@ -1,0 +1,5 @@
+[toolchain]
+channel = "stable"
+# Su Windows con i Build Tools MSVC già installati:
+targets = ["x86_64-pc-windows-msvc"]
+components = ["rustfmt", "clippy"]

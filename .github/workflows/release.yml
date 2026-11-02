@@ -1,0 +1,31 @@
+﻿name: Release
+on:
+  push:
+    tags:
+      - "v*"
+permissions:
+  contents: write
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --workspace
+      - run: choco install innosetup --no-progress -y
+      - run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\axcrypt.iss'
+      - shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item target\release\axcrypt.exe dist\
+          Copy-Item target\release\axcrypt-gui.exe dist\
+          Copy-Item installer\Output\AXCrypt-Setup.exe dist\
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/AXCrypt-Setup.exe
+            dist/axcrypt.exe
+            dist/axcrypt-gui.exe

@@ -1,0 +1,17 @@
+[package]
+name = "axcrypt-gui"
+version = "0.2.0"
+edition = "2021"
+description = "GUI di AXCrypt (egui/eframe) che riusa il core."
+license = "LicenseRef-Proprietary"
+publish = false
+
+[[bin]]
+name = "axcrypt-gui"
+path = "src/main.rs"
+
+[dependencies]
+axcrypt-core = { path = "../core" }
+eframe = "0.28"
+rfd = "0.14"
+walkdir = "2.5"

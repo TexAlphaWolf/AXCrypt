@@ -1,0 +1,20 @@
+# Rust
+/target
+**/target
+Cargo.lock.bak
+
+# Chiavi e segreti: NON committare mai questi file
+*.key
+*.keyfile
+*.axid
+identity.*
+keyfile.bin
+
+# Archivi di prova
+*.axc
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/

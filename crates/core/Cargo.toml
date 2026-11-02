@@ -1,0 +1,26 @@
+[package]
+name = "axcrypt-core"
+version = "0.2.0"
+edition = "2021"
+description = "Core di AXCrypt: formato, compressione, cifratura, firma."
+license = "LicenseRef-Proprietary"
+publish = false
+
+[lib]
+name = "axcrypt_core"
+path = "src/lib.rs"
+
+[dependencies]
+zstd = { workspace = true }
+chacha20poly1305 = { workspace = true }
+argon2 = { workspace = true }
+blake3 = { workspace = true }
+ed25519-dalek = { workspace = true }
+fastcdc = { workspace = true }
+serde = { workspace = true }
+bincode = { workspace = true }
+zeroize = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
+rayon = { workspace = true }
+reed-solomon-erasure = { workspace = true }
