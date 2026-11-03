@@ -12,7 +12,7 @@ use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 
 use axcrypt_core as ax;
-use eframe::egui::{self, Color32, Rounding, Stroke};
+use eframe::egui::{self, Color32, CornerRadius, Stroke};
 use walkdir::WalkDir;
 
 // ---- palette ----
@@ -53,7 +53,7 @@ fn main() -> eframe::Result<()> {
 
 fn apply_theme(ctx: &egui::Context) {
     use egui::{FontFamily::Proportional, FontId, TextStyle};
-    let mut style = (*ctx.style()).clone();
+    let mut style = (*ctx.global_style()).clone();
     let mut v = egui::Visuals::dark();
 
     v.override_text_color = Some(TEXT);
@@ -65,7 +65,7 @@ fn apply_theme(ctx: &egui::Context) {
     v.selection.bg_fill = ORANGE_DIM;
     v.selection.stroke = Stroke::new(1.0_f32, ORANGE);
 
-    let rnd = Rounding::same(6.0);
+    let rnd = CornerRadius::same(6);
     for w in [
         &mut v.widgets.noninteractive,
         &mut v.widgets.inactive,
@@ -73,7 +73,7 @@ fn apply_theme(ctx: &egui::Context) {
         &mut v.widgets.active,
         &mut v.widgets.open,
     ] {
-        w.rounding = rnd;
+        w.corner_radius = rnd;
     }
     v.widgets.noninteractive.bg_fill = PANEL;
     v.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, BORDER);
@@ -93,7 +93,7 @@ fn apply_theme(ctx: &egui::Context) {
     v.widgets.open.bg_fill = WIDGET;
     v.widgets.open.bg_stroke = Stroke::new(1.0_f32, ORANGE);
 
-    v.window_rounding = Rounding::same(8.0);
+    v.window_corner_radius = CornerRadius::same(8);
     v.window_stroke = Stroke::new(1.0_f32, BORDER);
 
     style.visuals = v;
@@ -111,7 +111,7 @@ fn apply_theme(ctx: &egui::Context) {
         (TextStyle::Small, FontId::new(11.0, Proportional)),
     ]
     .into();
-    ctx.set_style(style);
+    ctx.set_global_style(style);
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -414,12 +414,12 @@ fn strength_bar(ui: &mut egui::Ui, pw: &str) {
         ui.add_space(LABEL_W);
         let (rect, _) = ui.allocate_exact_size(egui::vec2(FIELD_W, 8.0), egui::Sense::hover());
         let p = ui.painter();
-        p.rect_filled(rect, Rounding::same(4.0), WIDGET);
+        p.rect_filled(rect, CornerRadius::same(4), WIDGET);
         let frac = (bits / 128.0).clamp(0.0, 1.0) as f32;
         if frac > 0.0 {
             let filled =
                 egui::Rect::from_min_size(rect.min, egui::vec2(rect.width() * frac, rect.height()));
-            p.rect_filled(filled, Rounding::same(4.0), color);
+            p.rect_filled(filled, CornerRadius::same(4), color);
         }
         ui.label(
             egui::RichText::new(format!("{lbl} · {:.0} bit", bits))
@@ -435,9 +435,9 @@ fn password_generator(ui: &mut egui::Ui, g: &mut GenState) -> Option<String> {
     ui.horizontal(|ui| {
         ui.add_space(LABEL_W);
         let txt = if g.open {
-            "▾ Generatore password"
+            "⏷ Generatore password"
         } else {
-            "▸ Generatore password"
+            "⏵ Generatore password"
         };
         if ui.button(egui::RichText::new(txt).color(ORANGE)).clicked() {
             g.open = !g.open;
@@ -446,96 +446,101 @@ fn password_generator(ui: &mut egui::Ui, g: &mut GenState) -> Option<String> {
     if !g.open {
         return None;
     }
-    egui::Frame::none()
-        .fill(FIELD_BG)
-        .stroke(Stroke::new(1.0_f32, BORDER))
-        .rounding(Rounding::same(6.0))
-        .inner_margin(egui::Margin::same(10.0))
-        .outer_margin(egui::Margin {
-            left: LABEL_W,
-            bottom: 4.0,
-            ..Default::default()
-        })
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("Lunghezza").color(TEXT_DIM));
-                ui.add(egui::Slider::new(&mut g.len, 8..=64));
-            });
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut g.lower, "a-z");
-                ui.checkbox(&mut g.upper, "A-Z");
-                ui.checkbox(&mut g.digits, "0-9");
-                ui.checkbox(&mut g.symbols, "!@#");
-            });
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                if ui.button("Genera").clicked() {
-                    let opts = ax::PwOptions {
-                        length: g.len,
-                        lower: g.lower,
-                        upper: g.upper,
-                        digits: g.digits,
-                        symbols: g.symbols,
-                    };
-                    g.value = ax::generate_password(&opts);
-                    g.reveal = true;
-                }
-                if !g.value.is_empty() {
-                    if ui
-                        .button(if g.reveal { "Nascondi" } else { "Mostra" })
-                        .clicked()
-                    {
-                        g.reveal = !g.reveal;
+    ui.horizontal(|ui| {
+        ui.add_space(LABEL_W);
+        ui.vertical(|ui| {
+            egui::Frame::NONE
+                .fill(FIELD_BG)
+                .stroke(Stroke::new(1.0_f32, BORDER))
+                .corner_radius(CornerRadius::same(6))
+                .inner_margin(egui::Margin::same(10))
+                .outer_margin(egui::Margin {
+                    bottom: 4,
+                    ..Default::default()
+                })
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Lunghezza").color(TEXT_DIM));
+                        ui.add(egui::Slider::new(&mut g.len, 8..=64));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.checkbox(&mut g.lower, "a-z");
+                        ui.checkbox(&mut g.upper, "A-Z");
+                        ui.checkbox(&mut g.digits, "0-9");
+                        ui.checkbox(&mut g.symbols, "!@#");
+                    });
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        if ui.button("Genera").clicked() {
+                            let opts = ax::PwOptions {
+                                length: g.len,
+                                lower: g.lower,
+                                upper: g.upper,
+                                digits: g.digits,
+                                symbols: g.symbols,
+                            };
+                            g.value = ax::generate_password(&opts);
+                            g.reveal = true;
+                        }
+                        if !g.value.is_empty() {
+                            if ui
+                                .button(if g.reveal { "Nascondi" } else { "Mostra" })
+                                .clicked()
+                            {
+                                g.reveal = !g.reveal;
+                            }
+                            if ui.button("Copia").clicked() {
+                                ui.ctx().copy_text(g.value.clone());
+                            }
+                            if ui.button("Usa").clicked() {
+                                chosen = Some(g.value.clone());
+                            }
+                        }
+                    });
+                    if !g.value.is_empty() {
+                        let shown = if g.reveal {
+                            g.value.clone()
+                        } else {
+                            "•".repeat(g.value.chars().count())
+                        };
+                        ui.add_space(2.0);
+                        ui.label(egui::RichText::new(shown).monospace().color(TEXT));
+                        let bits = ax::estimate_entropy(&g.value);
+                        let color = if bits < 80.0 { AMBER } else { GREEN };
+                        ui.label(
+                            egui::RichText::new(format!("robustezza: {:.0} bit", bits))
+                                .small()
+                                .color(color),
+                        );
                     }
-                    if ui.button("Copia").clicked() {
-                        ui.output_mut(|o| o.copied_text = g.value.clone());
-                    }
-                    if ui.button("Usa").clicked() {
-                        chosen = Some(g.value.clone());
-                    }
-                }
-            });
-            if !g.value.is_empty() {
-                let shown = if g.reveal {
-                    g.value.clone()
-                } else {
-                    "•".repeat(g.value.chars().count())
-                };
-                ui.add_space(2.0);
-                ui.label(egui::RichText::new(shown).monospace().color(TEXT));
-                let bits = ax::estimate_entropy(&g.value);
-                let color = if bits < 80.0 { AMBER } else { GREEN };
-                ui.label(
-                    egui::RichText::new(format!("robustezza: {:.0} bit", bits))
-                        .small()
-                        .color(color),
-                );
-            }
+                });
         });
+    });
     chosen
 }
 
 /// Card con ombra, bordo arancione e titolo sottolineato.
 fn card(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
-    egui::Frame::none()
+    egui::Frame::NONE
         .fill(CARD)
         .stroke(Stroke::new(1.0_f32, ORANGE))
-        .rounding(Rounding::same(8.0))
+        .corner_radius(CornerRadius::same(8))
         .shadow(egui::epaint::Shadow {
-            offset: egui::vec2(0.0, 3.0),
-            blur: 10.0,
-            spread: 0.0,
+            offset: [0, 3],
+            blur: 10,
+            spread: 0,
             color: Color32::from_black_alpha(90),
         })
-        .inner_margin(egui::Margin::same(16.0))
+        .inner_margin(egui::Margin::same(16))
         .outer_margin(egui::Margin {
-            bottom: 12.0,
+            bottom: 12,
             ..Default::default()
         })
         .show(ui, |ui| {
             ui.label(egui::RichText::new(title).size(16.0).strong().color(ORANGE));
             let (rect, _) = ui.allocate_exact_size(egui::vec2(44.0, 3.0), egui::Sense::hover());
-            ui.painter().rect_filled(rect, Rounding::same(2.0), ORANGE);
+            ui.painter()
+                .rect_filled(rect, CornerRadius::same(2), ORANGE);
             ui.add_space(10.0);
             body(ui);
         });
@@ -548,27 +553,27 @@ fn action(ui: &mut egui::Ui, text: &str) -> bool {
             .color(Color32::from_rgb(20, 20, 20)),
     )
     .fill(ORANGE)
-    .rounding(Rounding::same(6.0));
+    .corner_radius(CornerRadius::same(6));
     ui.add_sized([ui.available_width().min(220.0), 32.0], btn)
         .clicked()
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.poll();
         if self.busy {
-            ctx.request_repaint();
+            ui.ctx().request_repaint();
         }
 
-        egui::SidePanel::left("side")
+        egui::Panel::left("side")
             .resizable(false)
-            .exact_width(176.0)
+            .exact_size(176.0)
             .frame(
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(PANEL)
-                    .inner_margin(egui::Margin::same(16.0)),
+                    .inner_margin(egui::Margin::same(16)),
             )
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.add_space(4.0);
                 ui.label(
                     egui::RichText::new("AXCrypt")
@@ -588,29 +593,35 @@ impl eframe::App for App {
                 self.tab_button(ui, Tab::Recovery, "Recupero");
             });
 
-        egui::TopBottomPanel::bottom("status")
+        egui::Panel::bottom("status")
             .frame(
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(PANEL)
-                    .inner_margin(egui::Margin::symmetric(16.0, 9.0)),
+                    .inner_margin(egui::Margin::symmetric(16, 9)),
             )
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if self.busy {
                         ui.spinner();
                     }
-                    ui.colored_label(if self.status_ok { GREEN } else { RED }, "●");
+                    let (dot, _) =
+                        ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
+                    ui.painter().circle_filled(
+                        dot.center(),
+                        4.5,
+                        if self.status_ok { GREEN } else { RED },
+                    );
                     ui.label(&self.status);
                 });
             });
 
         egui::CentralPanel::default()
             .frame(
-                egui::Frame::none()
+                egui::Frame::NONE
                     .fill(BG)
-                    .inner_margin(egui::Margin::same(18.0)),
+                    .inner_margin(egui::Margin::same(18)),
             )
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui.add_enabled_ui(!self.busy, |ui| match self.tab {
                         Tab::Pack => self.ui_pack(ui),
@@ -638,7 +649,7 @@ impl App {
             } else {
                 Stroke::NONE
             })
-            .rounding(Rounding::same(6.0));
+            .corner_radius(CornerRadius::same(6));
         if ui.add_sized([ui.available_width(), 34.0], btn).clicked() {
             self.tab = tab;
         }
@@ -764,7 +775,7 @@ impl App {
                     let sk = ax::identity::generate();
                     ax::identity::save_identity(&out, &sk).map_err(|e| e.to_string())?;
                     let pubp = format!("{out}.pub");
-                    ax::identity::save_public(&PathBuf::from(&pubp), &sk.verifying_key())
+                    ax::identity::save_public(PathBuf::from(&pubp), &sk.verifying_key())
                         .map_err(|e| e.to_string())?;
                     Ok(format!("Identità creata: {out} (+ {pubp})"))
                 });

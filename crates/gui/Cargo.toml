@@ -12,6 +12,6 @@ path = "src/main.rs"
 
 [dependencies]
 axcrypt-core = { path = "../core" }
-eframe = "0.28"
-rfd = "0.14"
+eframe = "0.36.2"
+rfd = "0.17.2"
 walkdir = "2.5"

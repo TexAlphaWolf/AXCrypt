@@ -4,6 +4,21 @@ Tutte le modifiche rilevanti sono documentate qui. Il formato segue
 [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il
 [Versionamento Semantico](https://semver.org/lang/it/).
 
+## [0.5.2] - 2026-11-03
+
+### Modificato
+- **GUI**: aggiornata a `eframe`/`egui` 0.36.2 (da 0.28) e `rfd` 0.17.2.
+  Porting alle nuove API (`App::ui`, `Panel`, `CornerRadius`, `Frame::NONE`)
+  mantenendo tema e funzioni invariati. Gli avvisi di cargo-audit sulla GUI
+  scendono da 9 a 4: restano `ttf-parser` (font di egui, nessuna alternativa
+  upstream) e `zbus_names`/`zvariant`/`zvariant_derive` (solo Linux, non
+  compilati su Windows).
+
+### Corretto
+- GUI: i simboli del pallino di stato e della freccia del generatore password
+  non erano presenti nei font di egui e apparivano come quadratini vuoti; ora
+  il pallino è disegnato e la freccia usa un glifo supportato.
+
 ## [0.5.1] - 2026-11-03
 
 ### Modificato
