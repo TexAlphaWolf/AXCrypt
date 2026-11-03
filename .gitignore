@@ -1,17 +1,18 @@
-# Rust
+﻿# Rust
 /target
 **/target
 Cargo.lock.bak
 
-# Chiavi e segreti: NON committare mai questi file
+# Chiavi e segreti (NB: niente "identity.*", escluderebbe il sorgente identity.rs)
 *.key
 *.keyfile
 *.axid
-identity.*
+*.axid.pub
 keyfile.bin
 
-# Archivi di prova
+# Archivi e recovery di prova
 *.axc
+*.rec
 
 # OS / editor
 Thumbs.db

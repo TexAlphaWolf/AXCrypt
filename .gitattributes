@@ -1,0 +1,18 @@
+# Normalizza i fine-riga: nel repository restano LF, in locale Git adatta.
+* text=auto eol=lf
+
+# File tipicamente Windows: mantieni CRLF in locale.
+*.ps1  text eol=crlf
+*.iss  text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Binari: niente conversione.
+*.exe  binary
+*.dll  binary
+*.axc  binary
+*.rec  binary
+*.axid binary
+*.bin  binary
+*.png  binary
+*.ico  binary
