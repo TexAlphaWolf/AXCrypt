@@ -1,5 +1,12 @@
 # AXCrypt — archiviatore compresso e cifrato
 
+[![CI](https://github.com/TexAlphaWolf/AXCrypt/actions/workflows/ci.yml/badge.svg)](https://github.com/TexAlphaWolf/AXCrypt/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/TexAlphaWolf/AXCrypt?sort=semver&color=ff8a18)](https://github.com/TexAlphaWolf/AXCrypt/releases)
+![Rust](https://img.shields.io/badge/rust-stable%20MSVC-orange?logo=rust)
+![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?logo=windows)
+![License](https://img.shields.io/badge/license-proprietaria-red)
+![Tests](https://img.shields.io/badge/test-18%20passati-brightgreen)
+
 Archiviatore personale con **compressione** (deduplicazione a blocchi + zstd) e
 **cifratura autenticata** a due fattori (**password + keyfile**), con **firma**
 Ed25519 degli archivi. Formato proprietario `.axc`, aperto e documentato
