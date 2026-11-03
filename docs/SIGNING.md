@@ -15,7 +15,13 @@ opzionali e la build funziona anche senza.
   un'identità verificata, riduce i falsi positivi e toglie l'avviso di "editore
   sconosciuto" di SmartScreen. Per questo packing e firma vanno **insieme**.
 
-Ordine della pipeline (gestito da `release.yml`):
+In `release.yml` **packing e firma viaggiano insieme**: la compressione UPX
+viene eseguita solo quando è configurato un certificato (secret
+`SIGN_PFX_BASE64`). Senza certificato la release esce con binari **puliti**
+(non compressi, non firmati), evitando così un binario compresso ma non
+firmato, che gli antivirus segnalerebbero spesso come sospetto.
+
+Ordine della pipeline, quando il certificato è presente:
 
 ```
 cargo build --release   →   pack.ps1 (UPX)   →   sign.ps1 (exe)
@@ -23,7 +29,8 @@ cargo build --release   →   pack.ps1 (UPX)   →   sign.ps1 (exe)
 ```
 
 Si comprime **prima** e si firma **dopo**: UPX non può comprimere un file già
-firmato senza invalidarne la firma.
+firmato senza invalidarne la firma. In locale puoi comunque lanciare `pack.ps1`
+e `sign.ps1` a mano in quest'ordine per provarli.
 
 ## Script
 

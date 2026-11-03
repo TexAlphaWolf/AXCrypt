@@ -15,9 +15,11 @@ Tutte le modifiche rilevanti sono documentate qui. Il formato segue
 - `docs/SIGNING.md`: guida a packing, firma e scelta del certificato.
 
 ### Modificato
-- `release.yml`: UPX + firma (opzionali, via i secret `SIGN_PFX_BASE64` e
-  `SIGN_PFX_PASSWORD`); senza certificato la release esce non firmata. La
-  versione dell'installer ora arriva dal tag.
+- `release.yml`: UPX + firma attivi solo quando è configurato un certificato
+  (secret `SIGN_PFX_BASE64` / `SIGN_PFX_PASSWORD`); packing e firma viaggiano
+  insieme, così senza certificato la release esce pulita (non compressa, non
+  firmata) e non si rischiano falsi positivi degli antivirus. La versione
+  dell'installer ora arriva dal tag.
 - Installer: versione parametrica (`/DAppVersion=...`) e campi VersionInfo.
 
 ## [0.6.0] - 2026-11-03

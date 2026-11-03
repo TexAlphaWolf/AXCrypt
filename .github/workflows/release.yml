@@ -8,8 +8,11 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   # Certificato di firma Authenticode (opzionale). Se i secret non sono
-  # impostati, la firma viene saltata e la release esce con binari non firmati.
-  # Imposta in Settings -> Secrets and variables -> Actions:
+  # impostati, firma E compressione vengono saltate: la release esce con
+  # binari puliti (non compressi, non firmati). Packing e firma viaggiano
+  # insieme di proposito: un binario compresso ma non firmato verrebbe spesso
+  # segnalato come sospetto dagli antivirus.
+  # Per attivarli, imposta in Settings -> Secrets and variables -> Actions:
   #   SIGN_PFX_BASE64   = contenuto del .pfx codificato in base64
   #   SIGN_PFX_PASSWORD = password del .pfx
   PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
@@ -32,7 +35,10 @@ jobs:
           $v = "${{ github.ref_name }}".TrimStart('v')
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Comprimi i binari (UPX)
+      # UPX solo se c'e' un certificato: senza firma non si comprime (evita i
+      # falsi positivi degli antivirus sui binari compressi).
+      - name: Comprimi i binari (UPX, solo se firmati)
+        if: env.PFX_BASE64 != ''
         shell: pwsh
         run: |
           choco install upx --no-progress -y
