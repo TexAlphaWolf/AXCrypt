@@ -6,7 +6,10 @@
 ; L'output è  installer\Output\AXCrypt-Setup.exe
 
 #define AppName "AXCrypt"
-#define AppVersion "0.5.0"
+; La versione si può passare da riga di comando:  ISCC.exe /DAppVersion=0.6.1 ...
+#ifndef AppVersion
+  #define AppVersion "0.6.1"
+#endif
 #define Publisher "Tex"
 #define CliExe "axcrypt.exe"
 #define GuiExe "axcrypt-gui.exe"
@@ -23,6 +26,9 @@ DisableProgramGroupPage=yes
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=Output
 OutputBaseFilename=AXCrypt-Setup
+VersionInfoVersion={#AppVersion}
+VersionInfoCompany={#Publisher}
+VersionInfoProductName={#AppName}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern

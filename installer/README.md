@@ -20,6 +20,22 @@ L'installer: copia `axcrypt.exe` e `axcrypt-gui.exe` in Program Files, crea il
 collegamento nel menu Start (e opzionalmente sul desktop), e — se scegli il
 relativo task — aggiunge `axcrypt` al PATH.
 
+## Packing (UPX) e firma (Authenticode)
+
+La release compila, comprime con UPX e firma i binari. Vedi
+[`docs/SIGNING.md`](../docs/SIGNING.md) per i dettagli. In breve, in locale:
+
+```powershell
+cargo build --release
+pwsh installer\pack.ps1 -Files targeteleasexcrypt.exe,targeteleasexcrypt-gui.exe
+# firma opzionale (serve un certificato; per i test: make-test-cert.ps1)
+pwsh installer\sign.ps1 -Files targeteleasexcrypt.exe,targeteleasexcrypt-gui.exe
+```
+
+Ordine: build -> UPX -> firma. Si comprime prima e si firma dopo, altrimenti la
+firma si invaliderebbe. L'installer va poi compilato DOPO questi due passi, così
+impacchetta gli exe già compressi e firmati.
+
 ## Binario davvero standalone (consigliato per distribuire)
 
 Per impostazione predefinita i binari MSVC dipendono dal runtime Visual C++

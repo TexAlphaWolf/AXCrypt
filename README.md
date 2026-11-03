@@ -40,6 +40,13 @@ lunghe girano in background, l'interfaccia resta reattiva.
 
 ![Interfaccia di AXCrypt](docs/gui-preview.png)
 
+## Download
+
+Le release su GitHub includono l'installer `AXCrypt-Setup.exe` e i due
+eseguibili. Dalla 0.6.1 i binari di release sono **compressi** (UPX) e, quando
+e' configurato un certificato, **firmati** (Authenticode). Dettagli su packing
+e firma: [`docs/SIGNING.md`](docs/SIGNING.md).
+
 ## Requisiti di build (Windows)
 
 Hai già i Build Tools MSVC con il workload C++. Manca **Rust**: installalo con

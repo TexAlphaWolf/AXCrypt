@@ -7,6 +7,13 @@ permissions:
   contents: write
 env:
   CARGO_TERM_COLOR: always
+  # Certificato di firma Authenticode (opzionale). Se i secret non sono
+  # impostati, la firma viene saltata e la release esce con binari non firmati.
+  # Imposta in Settings -> Secrets and variables -> Actions:
+  #   SIGN_PFX_BASE64   = contenuto del .pfx codificato in base64
+  #   SIGN_PFX_PASSWORD = password del .pfx
+  PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+  PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
 jobs:
   windows-installer:
     runs-on: windows-latest
@@ -14,15 +21,44 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --workspace
-      - run: choco install innosetup --no-progress -y
-      - run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\axcrypt.iss'
-      - shell: pwsh
+
+      - name: Build release
+        run: cargo build --release --workspace
+
+      - name: Versione dal tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart('v')
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Comprimi i binari (UPX)
+        shell: pwsh
+        run: |
+          choco install upx --no-progress -y
+          pwsh installer\pack.ps1 -Files target\release\axcrypt.exe,target\release\axcrypt-gui.exe
+
+      - name: Firma i binari (Authenticode, se configurato)
+        shell: pwsh
+        run: pwsh installer\sign.ps1 -Files target\release\axcrypt.exe,target\release\axcrypt-gui.exe
+
+      - name: Installa Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Compila l'installer
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=${{ steps.ver.outputs.version }} installer\axcrypt.iss'
+
+      - name: Firma l'installer (Authenticode, se configurato)
+        shell: pwsh
+        run: pwsh installer\sign.ps1 -Files installer\Output\AXCrypt-Setup.exe
+
+      - name: Prepara gli artefatti
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item target\release\axcrypt.exe dist\
           Copy-Item target\release\axcrypt-gui.exe dist\
           Copy-Item installer\Output\AXCrypt-Setup.exe dist\
+
       - uses: softprops/action-gh-release@v3
         with:
           files: |

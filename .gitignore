@@ -1,4 +1,4 @@
-﻿# Rust
+# Rust
 /target
 **/target
 Cargo.lock.bak
@@ -9,6 +9,11 @@ Cargo.lock.bak
 *.axid
 *.axid.pub
 keyfile.bin
+
+# Certificati di firma (code signing) e chiavi private: MAI nel repo
+*.pfx
+*.p12
+*.cer
 
 # Archivi e recovery di prova
 *.axc

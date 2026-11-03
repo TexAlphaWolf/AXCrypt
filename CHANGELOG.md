@@ -4,6 +4,22 @@ Tutte le modifiche rilevanti sono documentate qui. Il formato segue
 [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il
 [Versionamento Semantico](https://semver.org/lang/it/).
 
+## [0.6.1] - Non rilasciato
+
+### Aggiunto
+- **Packing e firma dei binari di release**. La pipeline comprime gli
+  eseguibili con UPX (`installer/pack.ps1`) e li firma con una firma
+  Authenticode SHA-256 + timestamp (`installer/sign.ps1`), installer compreso.
+- `installer/make-test-cert.ps1`: certificato self-signed per provare la
+  pipeline di firma in locale.
+- `docs/SIGNING.md`: guida a packing, firma e scelta del certificato.
+
+### Modificato
+- `release.yml`: UPX + firma (opzionali, via i secret `SIGN_PFX_BASE64` e
+  `SIGN_PFX_PASSWORD`); senza certificato la release esce non firmata. La
+  versione dell'installer ora arriva dal tag.
+- Installer: versione parametrica (`/DAppVersion=...`) e campi VersionInfo.
+
 ## [0.6.0] - 2026-11-03
 
 ### Aggiunto
