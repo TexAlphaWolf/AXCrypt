@@ -1,14 +1,27 @@
 # Specifica del formato `.axc` (AXCrypt Archive)
 
-Versione formato: **3**
-Stato: bozza di lavoro (v0.3)
+Versione formato: **4** (scritta dalla 0.6.0). La **v3** resta leggibile.
+Magic: `AXCRYPT4` (v4), `AXCRYPT3` (v3, solo lettura).
 
 > Tutti gli interi sono **little-endian**. Tutte le primitive crittografiche
 > sono standard e verificate: nessun algoritmo inventato in casa. La sicurezza
 > deriva **interamente dalla chiave** (principio di Kerckhoffs), non dalla
 > segretezza del formato. Questo documento è pubblico di proposito.
 
-## Novità della v2: cifratura a busta (envelope)
+## Novità della v4
+
+- **Codifica binaria propria** (niente serde/bincode): layout documentato qui
+  sotto, decoder difensivo (limiti su ogni lunghezza, niente byte in eccesso).
+- **Indice compatto**: lunghezze a `u32` invece di `u64`, poi compresso con
+  zstd prima della cifratura.
+- **Data di modifica** dei file salvata e ripristinata in estrazione.
+- **Validazione rigida** prima della firma: header e footer a taglia fissa,
+  regione keyslot in posizione fissa, parametri Argon2id entro limiti massimi.
+
+Gli archivi v3 si aprono, si estraggono e accettano `changepw`/`addkey`/`rmkey`
+(restando v3). Ricrearli in v4 serve solo per avere le date di modifica.
+
+## Cifratura a busta (envelope)
 
 Una **chiave master casuale** (MFK, 32 byte) cifra tutti i dati. La MFK non
 deriva dalla password: viene **avvolta** da una o più password/keyfile in una
@@ -41,8 +54,8 @@ deriva dalla password: viene **avvolta** da una o più password/keyfile in una
 ```
 Chiave master dati (MFK)  ──► casuale, 32 byte, generata una volta
         │
-        ├─ data_key  = derive_key("axcrypt v2 data key",  MFK)   cifra i blocchi
-        └─ index_key = derive_key("axcrypt v2 index key", MFK)   cifra l'indice
+        ├─ data_key  = derive_key("axcrypt v3 data key",  MFK)   cifra i blocchi
+        └─ index_key = derive_key("axcrypt v3 index key", MFK)   cifra l'indice
 
 Per ogni keyslot i:
    password ─► Argon2id(salt_i, params_i) ─► pw_key
@@ -77,15 +90,27 @@ conservata dall'utente. La sua pubkey sta nell'header; la privata firma.
 └──────────────────────────────────────────────────────────────┘
 ```
 
+### 3.0 Codifica binaria
+
+Interi little-endian; array a taglia fissa scritti grezzi; sequenze e stringhe
+(UTF-8) precedute dalla lunghezza: **`u32` in v4**, `u64` in v3 (il layout v3 è
+quello che produceva bincode 1.x, ora decodificato a mano). Il decoder rifiuta
+lunghezze che superano i byte rimasti, dati troncati e byte in eccesso.
+
 ### 3.1 CoreHeader (immutabile)
 
 `format_version(u16)`, `flags(u32)`, `aead/compress/kdf algo (u8)`,
 `cdc_min/avg/max (u32)`, `signer_pubkey[32]`, `archive_id[16]`,
 `slot_region_start(u64)`, `slot_region_len(u64)`.
 
-Tutti i campi sono a dimensione fissa, quindi la lunghezza del CoreHeader è
-costante e `slot_region_start` è determinabile senza dipendenze circolari. Il
-corpo serializzato è l'**AAD** per dati, indice e wrapping degli slot.
+Tutti i campi sono a dimensione fissa: il corpo è sempre di **85 byte** (v3 e
+v4), quindi `slot_region_start = 8 + 4 + 85 = 97` senza dipendenze circolari.
+Il corpo serializzato è l'**AAD** per dati, indice e wrapping degli slot.
+
+In lettura (prima ancora di verificare la firma) si rifiutano: magic
+sconosciuto, `u32 len` diverso da 85, `format_version` incoerente col magic,
+algoritmi sconosciuti, `slot_region_start`/`slot_region_len` diversi dai valori
+fissi.
 
 ### 3.2 Regione Keyslot (dimensione fissa, riscrivibile)
 
@@ -101,6 +126,11 @@ corpo serializzato è l'**AAD** per dati, indice e wrapping degli slot.
 | `salt`         | `[u8;16]`   |
 | `nonce`        | `[u8;24]`   |
 | `wrapped`      | `[u8;48]`   (MFK 32 + tag 16) |
+
+I parametri Argon2id sono in chiaro e non autenticabili prima del KDF, quindi
+hanno limiti massimi: `argon_mem_kib ≤ 4 GiB`, `1 ≤ argon_iters ≤ 32`,
+`1 ≤ argon_lanes ≤ 16`. Uno slot fuori limite (danneggiato) viene saltato:
+un bit alterato non può chiedere decine di GiB di RAM o ore di calcolo.
 
 `MAC = BLAKE3::keyed_hash(MFK, byte_di_tutti_gli_slot)`: una volta recuperata la
 MFK da uno slot valido, il MAC rileva manomissioni della lista d'accesso.
@@ -119,14 +149,33 @@ deduplicati per BLAKE3: un blocco uguale è memorizzato una sola volta.
 
 ### 3.4 Encrypted Index
 
-`IndexPlaintext { entries: Vec<FileEntry{ path, size, mode, chunks, blake3 }> }`
-serializzato (bincode) e cifrato con `index_key` (aad = core||"INDEX"). Nessun
-nome file è leggibile senza chiave.
+Record come i blocchi: `[nonce(24)][ct_len(u32)][ciphertext]`, cifrato con
+`index_key` (aad = core||"INDEX"). Nessun nome file è leggibile senza chiave.
+
+Plaintext **v4** = `[flag] || payload` (flag 0x01 zstd, 0x00 grezzo) dove il
+payload è:
+
+```
+u32 n_entries
+  per ogni voce:
+    u32 len + path (UTF-8)
+    u64 size
+    u32 mode
+    u8  has_mtime  (0 | 1)
+    [i64 mtime_secs, u32 mtime_nanos]   se has_mtime = 1
+    u32 n_chunks + u64 chunk_id × n
+    [u8;32] blake3 del file
+u32 n_offsets + u64 chunk_offset × n
+```
+
+Plaintext **v3**: stessa struttura con lunghezze `u64`, senza `has_mtime`/mtime
+e senza flag di compressione.
 
 ### 3.5 Footer
 
 `chunk_count`, `chunk_stream_off`, `index_off`, `index_ct_len`,
-`total_orig_size`, poi `u32 len` e `FOOTER_MAGIC = "AXCF"`.
+`total_orig_size` (5 × `u64` = **40 byte**, v3 e v4), poi `u32 len` (deve
+valere 40) e `FOOTER_MAGIC = "AXCF"`.
 
 ### 3.6 Signature
 
@@ -145,8 +194,8 @@ MAC con la MFK. In verifica si può richiedere una `signer_pubkey` attesa
   (password+keyfile) → deriva data/index key → chunking (parallelo) → dedup →
   compressione+cifratura blocchi (parallelo) → indice cifrato → footer → firma.
 - **UNPACK**: verifica firma (+trust) → apre uno slot → MFK → data/index key →
-  legge footer → decifra blocchi (parallelo) → ricostruisce e verifica BLAKE3
-  di ogni file → scrive.
+  legge footer → decifra blocchi → ricostruisce e verifica BLAKE3 di ogni file
+  → scrive → ripristina la data di modifica (v4).
 - **CHANGEPW / ADDKEY / RMKEY**: aprono uno slot per recuperare la MFK, poi
   riscrivono **solo** la regione keyslot sul posto. Nessuna ricifratura dei
   dati, firma intatta. Non si può rimuovere l'ultimo slot.
@@ -178,4 +227,10 @@ prescindere dalla dimensione dell'archivio, quindi regge input più grandi della
 memoria disponibile. Misurato: ~25 MB di picco sia con 200 MB sia con 1 GB di
 input.
 
-Prossimi passi: recovery record (Reed-Solomon) e GUI. Vedi `ARCHITECTURE.md`.
+## 7. Test di robustezza
+
+La suite del core verifica che **ogni** byte alterato (inizio e fine del file
+più campioni casuali) e **ogni** troncamento producano un errore pulito, senza
+panico né allocazioni eccessive, e che la fixture v3 reale
+(`crates/core/tests/fixtures/`) continui ad aprirsi, estrarsi, cambiare password
+e ripararsi con il suo `.rec`.

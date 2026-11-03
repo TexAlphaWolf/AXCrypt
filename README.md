@@ -1,11 +1,11 @@
 # AXCrypt — archiviatore compresso e cifrato
 
 [![CI](https://github.com/TexAlphaWolf/AXCrypt/actions/workflows/ci.yml/badge.svg)](https://github.com/TexAlphaWolf/AXCrypt/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/badge/release-v0.5.0-ff8a18)](https://github.com/TexAlphaWolf/AXCrypt/releases)
+[![Release](https://img.shields.io/github/v/release/TexAlphaWolf/AXCrypt?color=ff8a18)](https://github.com/TexAlphaWolf/AXCrypt/releases)
 ![Rust](https://img.shields.io/badge/rust-stable%20MSVC-orange?logo=rust)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey?logo=windows)
 ![License](https://img.shields.io/badge/license-proprietaria-red)
-![Tests](https://img.shields.io/badge/test-18%20passati-brightgreen)
+![Tests](https://img.shields.io/badge/test-37%20passati-brightgreen)
 
 Archiviatore personale con **compressione** (deduplicazione a blocchi + zstd) e
 **cifratura autenticata** a due fattori (**password + keyfile**), con **firma**
@@ -21,10 +21,12 @@ Ed25519 degli archivi. Formato proprietario `.axc`, aperto e documentato
 
 ## Stato
 
-v0.5 — core + CLI + **GUI** funzionanti. Features: **multithread** (rayon),
+v0.6 — core + CLI + **GUI** funzionanti, formato archivio **v4** (legge anche
+i v3). Features: **multithread** (rayon),
 **cifratura a busta** (cambio password istantaneo, più chiavi), **streaming**
 (pack/unpack a memoria limitata, ~25 MB di picco anche su archivi da 1 GB+),
-**recovery record** (parità Reed-Solomon) e interfaccia grafica egui/eframe.
+**recovery record** (parità Reed-Solomon), **date di modifica** preservate e
+interfaccia grafica egui/eframe.
 
 ### GUI
 
@@ -37,10 +39,6 @@ password/aggiungi/rimuovi chiave), Recupero (crea .rec / ripara). Le operazioni
 lunghe girano in background, l'interfaccia resta reattiva.
 
 ![Interfaccia di AXCrypt](docs/gui-preview.png)
-
-> L'immagine sopra è un'anteprima del tema (mockup). Per sostituirla con uno
-> screenshot reale: lancia la GUI, cattura la finestra (Win+Maiusc+S) e salva in
-> `docs/gui-preview.png`, poi committa.
 
 ## Requisiti di build (Windows)
 
@@ -121,6 +119,14 @@ più danni tollera, più grande il `.rec`.
 
 Nota: dalla 0.5.1 il formato `.rec` è alla versione 2. Un `.rec` creato con la
 0.5.0 viene rifiutato: rigeneralo con `axcrypt protect` (l'archivio non cambia).
+I `.rec` v2 restano validi anche con la 0.6.
+
+### Formato archivio
+
+Dalla 0.6 gli archivi nuovi sono in formato **v4** (`AXCRYPT4`). Gli archivi v3
+creati con la 0.5.x si aprono ed estraggono normalmente, e cambio password e
+gestione chiavi funzionano anche su di essi. Per avere le date di modifica
+ripristinate in estrazione, ricrea l'archivio con la 0.6.
 
 ## Sicurezza — cosa garantisce e cosa no
 

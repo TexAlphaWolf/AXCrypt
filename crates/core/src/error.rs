@@ -7,8 +7,11 @@ pub enum AxError {
     #[error("I/O: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("serializzazione: {0}")]
-    Serialize(#[from] bincode::Error),
+    #[error("struttura binaria non valida: {0}")]
+    Decode(&'static str),
+
+    #[error("limite del formato superato: {0}")]
+    FormatLimit(&'static str),
 
     #[error("magic o versione del formato non validi")]
     BadMagic,

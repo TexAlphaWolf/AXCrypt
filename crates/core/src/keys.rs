@@ -56,6 +56,9 @@ pub fn derive_kek(
     lanes: u8,
     salt: &[u8; 16],
 ) -> Result<[u8; 32]> {
+    if !crate::format::argon_params_ok(mem_kib, iters, lanes) {
+        return Err(AxError::Kdf("parametri Argon2id fuori dai limiti".into()));
+    }
     let params = Params::new(mem_kib, iters, lanes as u32, Some(32))
         .map_err(|e| AxError::Kdf(e.to_string()))?;
     let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);

@@ -1,4 +1,5 @@
-//! AXCrypt core (formato v2): compressione + cifratura a busta + firma.
+//! AXCrypt core (formato v4, legge anche v3): compressione + cifratura a
+//! busta + firma.
 //! Pack/unpack a streaming (memoria limitata).
 //!
 //! API pubblica riusata da CLI e GUI. Nessun algoritmo crittografico è
@@ -6,6 +7,7 @@
 
 pub mod archive;
 pub mod chunk;
+pub mod codec;
 pub mod compress;
 pub mod crypto;
 pub mod error;
@@ -15,6 +17,9 @@ pub mod keys;
 pub mod keyslot;
 pub mod pwgen;
 pub mod recovery;
+
+#[cfg(test)]
+mod compat_tests;
 
 pub use archive::{
     addkey, changepw, pack_to_file, read_index_file, rmkey, unpack_file, verify_signature_file,

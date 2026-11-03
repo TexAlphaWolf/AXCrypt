@@ -1,4 +1,4 @@
-//! Orchestrazione del formato v2 in modalità **streaming**: pack/unpack
+//! Orchestrazione del formato (scrive v4, legge v3/v4) in modalità **streaming**: pack/unpack
 //! lavorano a memoria limitata (un blocco alla volta), così reggono archivi
 //! più grandi della RAM. Chunking incrementale (FastCDC StreamCDC) e accesso
 //! casuale ai blocchi tramite la tabella offset nell'indice.
@@ -18,7 +18,7 @@ use zeroize::Zeroize;
 use crate::compress;
 use crate::crypto::{self, NONCE_LEN};
 use crate::error::{AxError, Result};
-use crate::format::{self, ArgonParams, CoreHeader, FileEntry, Footer, IndexPlaintext};
+use crate::format::{self, ArgonParams, CoreHeader, FileEntry, FileTime, Footer, IndexPlaintext};
 use crate::keys::{self, DerivedKeys, Secret};
 use crate::keyslot::{self, KeySlot, MAX_SLOTS, SLOT_REGION_LEN};
 
@@ -149,7 +149,7 @@ pub fn pack_to_file(
         slot_region_start,
         slot_region_len: SLOT_REGION_LEN as u64,
     };
-    let core_body = core.body_bytes()?;
+    let core_body = core.body_bytes();
 
     let file = File::create(out_path)?;
     let mut ctx = OutCtx {
@@ -188,6 +188,11 @@ pub fn pack_to_file(
 
     for f in files {
         let src = File::open(&f.abs_path)?;
+        let mtime = src
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(FileTime::from_system);
         let chunker = StreamCDC::new(src, core.cdc_min, core.cdc_avg, core.cdc_max);
         let mut refs: Vec<u64> = Vec::new();
         let mut file_hasher = blake3::Hasher::new();
@@ -231,6 +236,7 @@ pub fn pack_to_file(
             path: f.rel_path.clone(),
             size,
             mode: f.mode,
+            mtime,
             chunks: refs,
             blake3: *file_hasher.finalize().as_bytes(),
         });
@@ -243,7 +249,7 @@ pub fn pack_to_file(
         entries,
         chunk_offsets,
     };
-    let index_bytes = bincode::serialize(&index_pt)?;
+    let index_bytes = index_pt.encode_v4(zstd_level)?;
     let inonce = crypto::random_nonce();
     let index_ct = crypto::seal(
         &data_keys.index_key,
@@ -265,7 +271,7 @@ pub fn pack_to_file(
         index_ct_len,
         total_orig_size: total_orig,
     };
-    let fbody = bincode::serialize(&footer)?;
+    let fbody = footer.body_bytes();
     ctx.hashed(&fbody)?;
     ctx.hashed(&(fbody.len() as u32).to_le_bytes())?;
     ctx.hashed(&format::FOOTER_MAGIC)?;
@@ -344,9 +350,11 @@ fn read_footer(f: &mut File, flen: u64) -> Result<Footer> {
         return Err(AxError::Corrupt("footer magic assente"));
     }
     let len = u32::from_le_bytes(read_at(f, base - 8, 4)?.try_into().unwrap()) as u64;
-    let fstart = base - 8 - len;
-    let fbody = read_at(f, fstart, len as usize)?;
-    Ok(bincode::deserialize(&fbody)?)
+    if len != format::FOOTER_BODY_LEN as u64 || len > base - 8 {
+        return Err(AxError::Corrupt("footer troncato o non valido"));
+    }
+    let fbody = read_at(f, base - 8 - len, len as usize)?;
+    Footer::decode(&fbody)
 }
 
 /// Verifica la firma leggendo il file a streaming (niente caricamento totale).
@@ -414,7 +422,7 @@ fn open_archive(path: &Path, secret: &Secret, trusted: Option<&[u8; 32]>) -> Res
     let footer = read_footer(&mut f, flen)?;
     let (nonce, ct) = read_record_at(&mut f, footer.index_off)?;
     let index_bytes = crypto::open(&data_keys.index_key, &nonce, &aad_index(&core_body), &ct)?;
-    let index: IndexPlaintext = bincode::deserialize(&index_bytes)?;
+    let index = IndexPlaintext::decode(&index_bytes, core.format_version)?;
 
     Ok(Opened {
         core,
@@ -480,6 +488,12 @@ pub fn unpack_file(
         out.flush()?;
         if *fh.finalize().as_bytes() != entry.blake3 {
             return Err(AxError::IntegrityFailed(entry.path.clone()));
+        }
+        // Ripristina la data di modifica (archivi v4). Best effort: un
+        // filesystem che non la supporta non fa fallire l'estrazione.
+        if let Some(t) = entry.mtime.and_then(FileTime::to_system) {
+            let file = out.into_inner().map_err(|e| e.into_error())?;
+            let _ = file.set_modified(t);
         }
         written.push(entry.path.clone());
     }

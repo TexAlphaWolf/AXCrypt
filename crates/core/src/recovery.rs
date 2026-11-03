@@ -10,14 +10,15 @@
 //! Il file `.rec` è separato: l'archivio resta intatto (firma valida).
 //! Libreria: `reed-solomon-simd` (codifica Reed-Solomon in GF(2^16), O(n log n)).
 //! Formato `.rec` v2: i `.rec` v1 (vecchia libreria) vanno rigenerati con
-//! `protect`.
+//! `protect`. I metadati usano lunghezze `u64` (layout invariato dalla 0.5.1,
+//! oggi codificato a mano in `codec.rs`), quindi i `.rec` v2 esistenti restano
+//! validi.
 
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use serde::{Deserialize, Serialize};
-
+use crate::codec::{Dec, Enc, LenWidth};
 use crate::error::{AxError, Result};
 
 const REC_MAGIC: [u8; 8] = *b"AXCREC2\0";
@@ -25,7 +26,6 @@ const REC_MAGIC: [u8; 8] = *b"AXCREC2\0";
 /// da riparare (ogni blocco danneggiato consuma un blocco di parità).
 const MAX_DATA: usize = 1024;
 
-#[derive(Serialize, Deserialize)]
 struct RecMeta {
     block_size: u32,
     data_count: u32,
@@ -34,6 +34,49 @@ struct RecMeta {
     archive_hash: [u8; 32],
     data_hashes: Vec<[u8; 16]>,
     parity_hashes: Vec<[u8; 16]>,
+}
+
+impl RecMeta {
+    fn encode(&self) -> Result<Vec<u8>> {
+        let mut e = Enc::new(LenWidth::U64);
+        e.u32(self.block_size);
+        e.u32(self.data_count);
+        e.u32(self.parity_count);
+        e.u64(self.orig_len);
+        e.raw(&self.archive_hash);
+        for list in [&self.data_hashes, &self.parity_hashes] {
+            e.len(list.len())?;
+            for h in list {
+                e.raw(h);
+            }
+        }
+        Ok(e.finish())
+    }
+
+    fn decode(b: &[u8]) -> Result<RecMeta> {
+        let mut d = Dec::new(b, LenWidth::U64);
+        let block_size = d.u32()?;
+        let data_count = d.u32()?;
+        let parity_count = d.u32()?;
+        let orig_len = d.u64()?;
+        let archive_hash = d.array()?;
+        let mut lists = [Vec::new(), Vec::new()];
+        for list in &mut lists {
+            let n = d.len(16)?;
+            *list = (0..n).map(|_| d.array()).collect::<Result<_>>()?;
+        }
+        d.finish()?;
+        let [data_hashes, parity_hashes] = lists;
+        Ok(RecMeta {
+            block_size,
+            data_count,
+            parity_count,
+            orig_len,
+            archive_hash,
+            data_hashes,
+            parity_hashes,
+        })
+    }
 }
 
 /// Esito della creazione del recovery record.
@@ -106,7 +149,7 @@ pub fn protect(archive: &Path, rec_out: &Path, redundancy_pct: u32) -> Result<Re
 
     let mut f = BufWriter::new(File::create(rec_out)?);
     f.write_all(&REC_MAGIC)?;
-    let mb = bincode::serialize(&meta)?;
+    let mb = meta.encode()?;
     f.write_all(&(mb.len() as u32).to_le_bytes())?;
     f.write_all(&mb)?;
     for p in &parity {
@@ -131,7 +174,7 @@ fn read_rec(path: &Path) -> Result<(RecMeta, Vec<u8>)> {
     if buf.len() < 12 + mlen {
         return Err(AxError::RecoveryBadMagic);
     }
-    let meta: RecMeta = bincode::deserialize(&buf[12..12 + mlen])?;
+    let meta = RecMeta::decode(&buf[12..12 + mlen]).map_err(|_| AxError::RecoveryBadMagic)?;
     let bs = meta.block_size as usize;
     let consistent = bs >= 2
         && bs.is_multiple_of(2)

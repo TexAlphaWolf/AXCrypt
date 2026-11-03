@@ -4,6 +4,32 @@ Tutte le modifiche rilevanti sono documentate qui. Il formato segue
 [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il
 [Versionamento Semantico](https://semver.org/lang/it/).
 
+## [0.6.0] - 2026-11-03
+
+### Aggiunto
+- **Formato archivio v4** (`AXCRYPT4`): codifica binaria propria e documentata
+  in `docs/FORMAT_SPEC.md`, senza `serde`/`bincode`.
+- Indice più compatto: lunghezze a `u32` e compressione zstd prima della
+  cifratura (oltre il 50% più piccolo su archivi con molti file).
+- **Date di modifica** dei file salvate nell'archivio e ripristinate in
+  estrazione.
+- Test di robustezza: ogni byte alterato e ogni troncamento devono dare un
+  errore pulito; fixture di un archivio v3 reale per i test di compatibilità.
+
+### Modificato
+- Gli archivi **v3 restano leggibili** (estrazione, `list`, `info`, `changepw`,
+  `addkey`, `rmkey`, `repair`). I nuovi archivi sono sempre v4.
+- I `.rec` v2 restano validi (stesso layout, ora codificato senza bincode).
+- Rimosse le dipendenze `serde` e `bincode` dal core: cargo-audit non segnala
+  più nulla nel core.
+
+### Sicurezza
+- Limiti massimi ai parametri Argon2id letti dagli slot (4 GiB, 32 iterazioni,
+  16 lane). Prima un singolo bit alterato in uno slot poteva far tentare
+  un'allocazione di decine di GiB (crash) o miliardi di iterazioni (blocco).
+- Header e footer validati a taglia fissa prima di qualsiasi allocazione;
+  corretto un possibile underflow nella lettura del footer di file malformati.
+
 ## [0.5.2] - 2026-11-03
 
 ### Modificato

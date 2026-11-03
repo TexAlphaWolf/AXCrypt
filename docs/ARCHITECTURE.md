@@ -61,7 +61,6 @@ Ed25519 sull'intero file.
 | `ed25519-dalek`     | firma                         |
 | `fastcdc`           | chunking content-defined      |
 | `reed-solomon-simd` | parità del recovery record    |
-| `bincode` + `serde` | serializzazione indice/header |
 | `zeroize`           | azzeramento chiavi in memoria |
 | `rand`              | sali, nonce, generazione chiavi|
 | `clap` (cli)        | parsing argomenti             |
@@ -82,9 +81,12 @@ assoluto.
    oltre la RAM); tabella offset dei blocchi per l'accesso casuale. ✓ fatto
 4. **v0.4 (questa)** — recovery record (Reed-Solomon) in sidecar `.rec`:
    comandi `protect`/`repair`. ✓ fatto
-5. **v0.5 (questa)** — GUI egui/eframe che riusa il core (schede Crea/Estrai/
+5. **v0.5** — GUI egui/eframe che riusa il core (schede Crea/Estrai/
    Chiavi/Recupero, operazioni su thread in background). ✓ fatto
-6. **Release** — strip simboli (già attivo) + packer/obfuscator sul binario.
+6. **v0.6** — formato v4: codifica binaria propria (via bincode/serde),
+   indice compatto e compresso, date di modifica, validazione rigida e limiti
+   ai parametri Argon2id; lettura v3 compatibile. ✓ fatto
+7. **Release** — strip simboli (già attivo) + packer/obfuscator sul binario.
 
 ## Recovery record (.rec)
 

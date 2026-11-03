@@ -185,7 +185,14 @@ pub fn compute_mac(mfk: &[u8; 32], slots_bytes: &[u8]) -> [u8; 32] {
 pub fn open_region(region: &[u8], secret: &Secret, core_body: &[u8]) -> Result<([u8; 32], usize)> {
     let slots = parse_slots(region)?;
     for (i, slot) in slots.iter().enumerate() {
-        if !slot.used {
+        // slot vuoto, o con parametri KDF fuori limite (danneggiato): saltato
+        if !slot.used
+            || !crate::format::argon_params_ok(
+                slot.argon_mem_kib,
+                slot.argon_iters,
+                slot.argon_lanes,
+            )
+        {
             continue;
         }
         let mut kek = keys::derive_kek(
@@ -220,7 +227,14 @@ pub fn open_region(region: &[u8], secret: &Secret, core_body: &[u8]) -> Result<(
 pub fn find_slot_index(region: &[u8], secret: &Secret, core_body: &[u8]) -> Result<usize> {
     let slots = parse_slots(region)?;
     for (i, slot) in slots.iter().enumerate() {
-        if !slot.used {
+        // slot vuoto, o con parametri KDF fuori limite (danneggiato): saltato
+        if !slot.used
+            || !crate::format::argon_params_ok(
+                slot.argon_mem_kib,
+                slot.argon_iters,
+                slot.argon_lanes,
+            )
+        {
             continue;
         }
         let mut kek = keys::derive_kek(
