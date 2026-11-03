@@ -36,6 +36,12 @@ Finestra con schede: Crea archivio, Estrai, Chiavi (identità/keyfile/cambio
 password/aggiungi/rimuovi chiave), Recupero (crea .rec / ripara). Le operazioni
 lunghe girano in background, l'interfaccia resta reattiva.
 
+![Interfaccia di AXCrypt](docs/gui-preview.png)
+
+> L'immagine sopra è un'anteprima del tema (mockup). Per sostituirla con uno
+> screenshot reale: lancia la GUI, cattura la finestra (Win+Maiusc+S) e salva in
+> `docs/gui-preview.png`, poi committa.
+
 ## Requisiti di build (Windows)
 
 Hai già i Build Tools MSVC con il workload C++. Manca **Rust**: installalo con
@@ -120,6 +126,25 @@ più danni tollera, più grande il `.rec`.
 - **Autenticità**: `--trust` fa accettare solo archivi firmati dalla tua chiave.
 - Non protegge da: password debole (usa password lunga + keyfile), furto
   simultaneo di password e USB, malware sul sistema mentre lavori in chiaro.
+
+## Sviluppo
+
+Prima di committare, formatta e controlla il codice (gli stessi controlli della CI):
+
+```powershell
+cargo fmt --all
+cargo clippy -p axcrypt-core --release -- -D warnings
+cargo test -p axcrypt-core
+```
+
+Per automatizzarli, attiva l'hook pre-commit incluso (una volta sola):
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+Da lì ogni `git commit` esegue `cargo fmt --check` e `cargo clippy` e si blocca
+se qualcosa non è a posto, così la CI non ti sorprende.
 
 ## Pubblicazione e release
 

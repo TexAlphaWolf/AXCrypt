@@ -1,0 +1,14 @@
+#!/bin/sh
+# Hook pre-commit: blocca il commit se il codice non è formattato o se clippy
+# (sul core) segnala avvisi. Attivalo una volta con:
+#     git config core.hooksPath .githooks
+# Su Windows gira tramite la shell inclusa in Git.
+set -e
+
+echo "[pre-commit] cargo fmt --check"
+cargo fmt --all -- --check
+
+echo "[pre-commit] cargo clippy (core)"
+cargo clippy -p axcrypt-core --release -- -D warnings
+
+echo "[pre-commit] ok"
