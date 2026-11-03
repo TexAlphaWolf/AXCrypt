@@ -4,12 +4,14 @@ on:
   schedule:
     - cron: "0 6 * * 1"
   push:
+    branches: [ main ]
     paths:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
 permissions:
   contents: read
   issues: write
+  checks: write
 jobs:
   audit:
     runs-on: ubuntu-latest
