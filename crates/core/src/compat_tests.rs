@@ -180,7 +180,7 @@ fn pack_v4(dir: &Path) -> (PathBuf, Secret, [u8; 32], Vec<Item>) {
             rnd,
             FileTime {
                 secs: 1_700_000_000,
-                nanos: 123_456_789,
+                nanos: 123_456_700,
             },
         ),
         (
@@ -237,14 +237,16 @@ fn v4_magic_versione_e_date_di_modifica() {
     }
 }
 
+// Nanosecondi multipli di 100: SystemTime su Windows ha risoluzione 100 ns
+// (su Linux 1 ns). Valori multipli di 100 sono esatti su entrambi.
 #[test]
 fn filetime_prima_e_dopo_il_1970() {
     for (secs, nanos) in [
         (0, 0),
-        (1, 5),
+        (1, 500),
         (-1, 0),
-        (-1, 999_999_999),
-        (-86_400 * 365, 250),
+        (-1, 999_999_900),
+        (-86_400 * 365, 200),
     ] {
         let t = FileTime { secs, nanos };
         let sys = t.to_system().unwrap();
@@ -257,8 +259,8 @@ fn filetime_prima_e_dopo_il_1970() {
     .to_system()
     .is_none());
     assert_eq!(
-        FileTime::from_system(UNIX_EPOCH + Duration::new(10, 7)),
-        Some(FileTime { secs: 10, nanos: 7 })
+        FileTime::from_system(UNIX_EPOCH + Duration::new(10, 700)),
+        Some(FileTime { secs: 10, nanos: 700 })
     );
 }
 
