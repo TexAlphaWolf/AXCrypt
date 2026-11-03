@@ -1,4 +1,4 @@
-﻿name: Release
+name: Release
 on:
   push:
     tags:
@@ -23,7 +23,7 @@ jobs:
           Copy-Item target\release\axcrypt.exe dist\
           Copy-Item target\release\axcrypt-gui.exe dist\
           Copy-Item installer\Output\AXCrypt-Setup.exe dist\
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             dist/AXCrypt-Setup.exe
