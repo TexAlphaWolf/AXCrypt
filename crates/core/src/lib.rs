@@ -67,17 +67,27 @@ mod tests {
         fs::write(src.join("vuoto.dat"), b"").unwrap();
         fs::write(src.join("sub").join("nota.txt"), b"nota breve").unwrap();
 
-        ["testo.txt", "dup.txt", "dati.bin", "vuoto.dat", "sub/nota.txt"]
-            .iter()
-            .map(|rel| {
-                let abs = if rel.contains('/') {
-                    src.join("sub").join("nota.txt")
-                } else {
-                    src.join(rel)
-                };
-                InputFile { rel_path: (*rel).into(), abs_path: abs, mode: 0 }
-            })
-            .collect()
+        [
+            "testo.txt",
+            "dup.txt",
+            "dati.bin",
+            "vuoto.dat",
+            "sub/nota.txt",
+        ]
+        .iter()
+        .map(|rel| {
+            let abs = if rel.contains('/') {
+                src.join("sub").join("nota.txt")
+            } else {
+                src.join(rel)
+            };
+            InputFile {
+                rel_path: (*rel).into(),
+                abs_path: abs,
+                mode: 0,
+            }
+        })
+        .collect()
     }
 
     fn secret(pw: &str, kf: Option<Vec<u8>>) -> Secret {
@@ -90,7 +100,15 @@ mod tests {
         let sk = identity::generate();
         let trusted = sk.verifying_key().to_bytes();
         let axc = dir.join("a.axc");
-        pack_to_file(&files, &axc, sec, &sk, compress::DEFAULT_LEVEL, &ArgonParams::fast()).unwrap();
+        pack_to_file(
+            &files,
+            &axc,
+            sec,
+            &sk,
+            compress::DEFAULT_LEVEL,
+            &ArgonParams::fast(),
+        )
+        .unwrap();
         (axc, trusted, files, dir.join("src"))
     }
 
@@ -125,9 +143,24 @@ mod tests {
         let sec = secret("pw-dedup", Some(make_keyfile(32)));
         let (axc, trusted, _f, _s) = pack_sample(&dir, &sec);
         let info = read_index_file(&axc, &sec, Some(&trusted)).unwrap();
-        let testo = &info.index.entries.iter().find(|e| e.path == "testo.txt").unwrap().chunks;
-        let dup = &info.index.entries.iter().find(|e| e.path == "dup.txt").unwrap().chunks;
-        assert_eq!(testo, dup, "i file identici devono referenziare gli stessi blocchi");
+        let testo = &info
+            .index
+            .entries
+            .iter()
+            .find(|e| e.path == "testo.txt")
+            .unwrap()
+            .chunks;
+        let dup = &info
+            .index
+            .entries
+            .iter()
+            .find(|e| e.path == "dup.txt")
+            .unwrap()
+            .chunks;
+        assert_eq!(
+            testo, dup,
+            "i file identici devono referenziare gli stessi blocchi"
+        );
     }
 
     #[test]
@@ -137,7 +170,10 @@ mod tests {
         let sec = secret("giusta", Some(kf.clone()));
         let (axc, _t, _f, _s) = pack_sample(&dir, &sec);
         let wrong = secret("sbagliata", Some(kf));
-        assert!(matches!(read_index_file(&axc, &wrong, None), Err(AxError::NoMatchingSlot)));
+        assert!(matches!(
+            read_index_file(&axc, &wrong, None),
+            Err(AxError::NoMatchingSlot)
+        ));
     }
 
     #[test]
@@ -187,7 +223,10 @@ mod tests {
         // la firma resta valida (non copre i keyslot)...
         assert!(verify_signature_file(&axc, Some(&trusted)).is_ok());
         // ...ma l'apertura rileva la manomissione
-        assert!(matches!(read_index_file(&axc, &sec, None), Err(AxError::SlotsTampered)));
+        assert!(matches!(
+            read_index_file(&axc, &sec, None),
+            Err(AxError::SlotsTampered)
+        ));
     }
 
     #[test]
@@ -240,13 +279,25 @@ mod tests {
             let name = format!("f{:03}.txt", i);
             let p = src.join(&name);
             fs::write(&p, format!("contenuto file {}\n", i).repeat(50)).unwrap();
-            files.push(InputFile { rel_path: name, abs_path: p, mode: 0 });
+            files.push(InputFile {
+                rel_path: name,
+                abs_path: p,
+                mode: 0,
+            });
         }
         let sec = secret("pw-many", Some(make_keyfile(32)));
         let sk = identity::generate();
         let trusted = sk.verifying_key().to_bytes();
         let axc = dir.join("many.axc");
-        pack_to_file(&files, &axc, &sec, &sk, compress::DEFAULT_LEVEL, &ArgonParams::fast()).unwrap();
+        pack_to_file(
+            &files,
+            &axc,
+            &sec,
+            &sk,
+            compress::DEFAULT_LEVEL,
+            &ArgonParams::fast(),
+        )
+        .unwrap();
         let out = dir.join("out");
         fs::create_dir_all(&out).unwrap();
         let w = unpack_file(&axc, &sec, Some(&trusted), &out).unwrap();
@@ -347,12 +398,24 @@ mod tests {
         }
         let p = src.join("grande.dat");
         fs::write(&p, &data).unwrap();
-        let files = vec![InputFile { rel_path: "grande.dat".into(), abs_path: p, mode: 0 }];
+        let files = vec![InputFile {
+            rel_path: "grande.dat".into(),
+            abs_path: p,
+            mode: 0,
+        }];
         let sec = secret("pw-big", Some(make_keyfile(32)));
         let sk = identity::generate();
         let trusted = sk.verifying_key().to_bytes();
         let axc = dir.join("big.axc");
-        let stats = pack_to_file(&files, &axc, &sec, &sk, compress::DEFAULT_LEVEL, &ArgonParams::fast()).unwrap();
+        let stats = pack_to_file(
+            &files,
+            &axc,
+            &sec,
+            &sk,
+            compress::DEFAULT_LEVEL,
+            &ArgonParams::fast(),
+        )
+        .unwrap();
         assert_eq!(stats.orig_size, data.len() as u64);
         let out = dir.join("out");
         fs::create_dir_all(&out).unwrap();

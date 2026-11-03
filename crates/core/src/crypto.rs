@@ -24,18 +24,40 @@ pub fn random_nonce() -> [u8; NONCE_LEN] {
 
 /// Cifra `plaintext` con `key` e `nonce`, legando `aad` (associated data).
 /// Restituisce il ciphertext (tag incluso).
-pub fn seal(key: &[u8; 32], nonce: &[u8; NONCE_LEN], aad: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
+pub fn seal(
+    key: &[u8; 32],
+    nonce: &[u8; NONCE_LEN],
+    aad: &[u8],
+    plaintext: &[u8],
+) -> Result<Vec<u8>> {
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     cipher
-        .encrypt(XNonce::from_slice(nonce), Payload { msg: plaintext, aad })
+        .encrypt(
+            XNonce::from_slice(nonce),
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
         .map_err(|_| AxError::Encrypt)
 }
 
 /// Decifra `ciphertext` (tag incluso) con `key`, `nonce` e `aad`.
-pub fn open(key: &[u8; 32], nonce: &[u8; NONCE_LEN], aad: &[u8], ciphertext: &[u8]) -> Result<Vec<u8>> {
+pub fn open(
+    key: &[u8; 32],
+    nonce: &[u8; NONCE_LEN],
+    aad: &[u8],
+    ciphertext: &[u8],
+) -> Result<Vec<u8>> {
     let cipher = XChaCha20Poly1305::new(Key::from_slice(key));
     cipher
-        .decrypt(XNonce::from_slice(nonce), Payload { msg: ciphertext, aad })
+        .decrypt(
+            XNonce::from_slice(nonce),
+            Payload {
+                msg: ciphertext,
+                aad,
+            },
+        )
         .map_err(|_| AxError::Decrypt)
 }
 

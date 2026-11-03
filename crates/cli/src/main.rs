@@ -138,30 +138,57 @@ fn real_main() -> Result<()> {
     match cli.cmd {
         Cmd::Keygen { out } => keygen(&out),
         Cmd::Makekeyfile { out, len } => makekeyfile(&out, len),
-        Cmd::Pack { identity, keyfile, input, output, level } => {
-            pack(&identity, keyfile.as_deref(), &input, &output, level)
-        }
-        Cmd::Unpack { input, output, keyfile, trust } => {
-            unpack(&input, &output, keyfile.as_deref(), trust.as_deref())
-        }
-        Cmd::List { input, keyfile, trust } => list(&input, keyfile.as_deref(), trust.as_deref()),
-        Cmd::Info { input, keyfile, trust } => info(&input, keyfile.as_deref(), trust.as_deref()),
-        Cmd::Changepw { input, keyfile, new_keyfile } => {
-            changepw(&input, keyfile.as_deref(), new_keyfile.as_deref())
-        }
-        Cmd::Addkey { input, keyfile, new_keyfile } => {
-            addkey(&input, keyfile.as_deref(), new_keyfile.as_deref())
-        }
-        Cmd::Rmkey { input, keyfile, target_keyfile } => {
-            rmkey(&input, keyfile.as_deref(), target_keyfile.as_deref())
-        }
-        Cmd::Protect { input, out, redundancy } => protect(&input, out.as_deref(), redundancy),
+        Cmd::Pack {
+            identity,
+            keyfile,
+            input,
+            output,
+            level,
+        } => pack(&identity, keyfile.as_deref(), &input, &output, level),
+        Cmd::Unpack {
+            input,
+            output,
+            keyfile,
+            trust,
+        } => unpack(&input, &output, keyfile.as_deref(), trust.as_deref()),
+        Cmd::List {
+            input,
+            keyfile,
+            trust,
+        } => list(&input, keyfile.as_deref(), trust.as_deref()),
+        Cmd::Info {
+            input,
+            keyfile,
+            trust,
+        } => info(&input, keyfile.as_deref(), trust.as_deref()),
+        Cmd::Changepw {
+            input,
+            keyfile,
+            new_keyfile,
+        } => changepw(&input, keyfile.as_deref(), new_keyfile.as_deref()),
+        Cmd::Addkey {
+            input,
+            keyfile,
+            new_keyfile,
+        } => addkey(&input, keyfile.as_deref(), new_keyfile.as_deref()),
+        Cmd::Rmkey {
+            input,
+            keyfile,
+            target_keyfile,
+        } => rmkey(&input, keyfile.as_deref(), target_keyfile.as_deref()),
+        Cmd::Protect {
+            input,
+            out,
+            redundancy,
+        } => protect(&input, out.as_deref(), redundancy),
         Cmd::Repair { input, rec, out } => repair(&input, rec.as_deref(), out.as_deref()),
     }
 }
 
 fn protect(input: &Path, out: Option<&Path>, redundancy: u32) -> Result<()> {
-    let out_path = out.map(|p| p.to_path_buf()).unwrap_or_else(|| append_ext(input, "rec"));
+    let out_path = out
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| append_ext(input, "rec"));
     let stats = ax::protect(input, &out_path, redundancy)?;
     println!(
         "Recovery record creato: {} ({} blocchi dati + {} di parità, blocco {} byte, overhead {} byte)",
@@ -176,8 +203,12 @@ fn protect(input: &Path, out: Option<&Path>, redundancy: u32) -> Result<()> {
 }
 
 fn repair(input: &Path, rec: Option<&Path>, out: Option<&Path>) -> Result<()> {
-    let rec_path = rec.map(|p| p.to_path_buf()).unwrap_or_else(|| append_ext(input, "rec"));
-    let out_path = out.map(|p| p.to_path_buf()).unwrap_or_else(|| append_ext(input, "repaired"));
+    let rec_path = rec
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| append_ext(input, "rec"));
+    let out_path = out
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| append_ext(input, "repaired"));
     let report = ax::repair(input, &rec_path, &out_path)?;
     if report.already_ok {
         println!("Archivio già integro: nessuna riparazione necessaria.");
@@ -197,7 +228,8 @@ fn keygen(out: &Path) -> Result<()> {
     let sk = ax::identity::generate();
     ax::identity::save_identity(out, &sk).context("salvataggio identità")?;
     let pub_path = append_ext(out, "pub");
-    ax::identity::save_public(&pub_path, &sk.verifying_key()).context("salvataggio chiave pubblica")?;
+    ax::identity::save_public(&pub_path, &sk.verifying_key())
+        .context("salvataggio chiave pubblica")?;
     println!("Identità creata:");
     println!("  privata : {}", out.display());
     println!("  pubblica: {}", pub_path.display());
@@ -216,7 +248,13 @@ fn makekeyfile(out: &Path, len: usize) -> Result<()> {
     Ok(())
 }
 
-fn pack(identity: &Path, keyfile: Option<&Path>, input: &Path, output: &Path, level: i32) -> Result<()> {
+fn pack(
+    identity: &Path,
+    keyfile: Option<&Path>,
+    input: &Path,
+    output: &Path,
+    level: i32,
+) -> Result<()> {
     let sk = ax::identity::load_identity(identity).context("caricamento identità")?;
     let kf = read_keyfile(keyfile)?;
     let password = prompt_password_confirm()?;
@@ -228,9 +266,20 @@ fn pack(identity: &Path, keyfile: Option<&Path>, input: &Path, output: &Path, le
     }
     println!("Archiviazione di {} file...", files.len());
 
-    let stats = ax::pack_to_file(&files, output, &secret, &sk, level, &ax::ArgonParams::strong())?;
+    let stats = ax::pack_to_file(
+        &files,
+        output,
+        &secret,
+        &sk,
+        level,
+        &ax::ArgonParams::strong(),
+    )?;
     report_ratio(stats.orig_size, stats.archive_size);
-    println!("Archivio creato: {} ({} blocchi unici)", output.display(), stats.chunk_count);
+    println!(
+        "Archivio creato: {} ({} blocchi unici)",
+        output.display(),
+        stats.chunk_count
+    );
     Ok(())
 }
 
@@ -261,8 +310,10 @@ fn info(input: &Path, keyfile: Option<&Path>, trust: Option<&Path>) -> Result<()
     let info = open_info(input, keyfile, trust)?;
     println!("Formato versione : {}", info.header.format_version);
     println!("Firmato da       : {}", hex(&info.header.signer_pubkey));
-    println!("Argon2id (slot)  : {} KiB, {} iter, {} lanes",
-        info.argon_mem_kib, info.argon_iters, info.argon_lanes);
+    println!(
+        "Argon2id (slot)  : {} KiB, {} iter, {} lanes",
+        info.argon_mem_kib, info.argon_iters, info.argon_lanes
+    );
     println!("Chiavi d'accesso : {}", info.slots_used);
     println!("Blocchi unici    : {}", info.footer.chunk_count);
     println!("File             : {}", info.index.entries.len());
@@ -317,7 +368,11 @@ fn rmkey(input: &Path, keyfile: Option<&Path>, target_keyfile: Option<&Path>) ->
 
 // ---- helper ----
 
-fn open_info(input: &Path, keyfile: Option<&Path>, trust: Option<&Path>) -> Result<ax::ArchiveInfo> {
+fn open_info(
+    input: &Path,
+    keyfile: Option<&Path>,
+    trust: Option<&Path>,
+) -> Result<ax::ArchiveInfo> {
     let trusted = load_trust(trust)?;
     let kf = read_keyfile(keyfile)?;
     let password = rpassword::prompt_password("Password: ").context("lettura password")?;
@@ -329,7 +384,11 @@ fn collect_files(input: &Path) -> Result<Vec<ax::InputFile>> {
     let mut out = Vec::new();
     if input.is_file() {
         let name = input.file_name().unwrap().to_string_lossy().to_string();
-        out.push(ax::InputFile { rel_path: name, abs_path: input.to_path_buf(), mode: 0 });
+        out.push(ax::InputFile {
+            rel_path: name,
+            abs_path: input.to_path_buf(),
+            mode: 0,
+        });
         return Ok(out);
     }
     let base = input;
@@ -349,14 +408,20 @@ fn collect_files(input: &Path) -> Result<Vec<ax::InputFile>> {
 
 fn read_keyfile(path: Option<&Path>) -> Result<Option<Vec<u8>>> {
     match path {
-        Some(p) => Ok(Some(fs::read(p).with_context(|| format!("lettura keyfile {}", p.display()))?)),
+        Some(p) => {
+            Ok(Some(fs::read(p).with_context(|| {
+                format!("lettura keyfile {}", p.display())
+            })?))
+        }
         None => Ok(None),
     }
 }
 
 fn load_trust(path: Option<&Path>) -> Result<Option<[u8; 32]>> {
     match path {
-        Some(p) => Ok(Some(ax::identity::load_public(p).context("lettura chiave fidata")?)),
+        Some(p) => Ok(Some(
+            ax::identity::load_public(p).context("lettura chiave fidata")?,
+        )),
         None => Ok(None),
     }
 }
@@ -383,8 +448,10 @@ fn report_ratio(orig: u64, archive: u64) {
         return;
     }
     let ratio = archive as f64 / orig as f64 * 100.0;
-    println!("Originale: {} byte  →  Archivio: {} byte  ({:.1}% dell'originale)",
-        orig, archive, ratio);
+    println!(
+        "Originale: {} byte  →  Archivio: {} byte  ({:.1}% dell'originale)",
+        orig, archive, ratio
+    );
 }
 
 fn append_ext(path: &Path, ext: &str) -> PathBuf {

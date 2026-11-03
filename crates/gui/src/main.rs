@@ -104,7 +104,10 @@ fn apply_theme(ctx: &egui::Context) {
         (TextStyle::Heading, FontId::new(18.0, Proportional)),
         (TextStyle::Body, FontId::new(14.0, Proportional)),
         (TextStyle::Button, FontId::new(14.0, Proportional)),
-        (TextStyle::Monospace, FontId::new(13.5, egui::FontFamily::Monospace)),
+        (
+            TextStyle::Monospace,
+            FontId::new(13.5, egui::FontFamily::Monospace),
+        ),
         (TextStyle::Small, FontId::new(11.0, Proportional)),
     ]
     .into();
@@ -262,7 +265,9 @@ fn load_trust(path: &str) -> Result<Option<[u8; 32]>, String> {
     if path.trim().is_empty() {
         Ok(None)
     } else {
-        ax::identity::load_public(path).map(Some).map_err(|e| e.to_string())
+        ax::identity::load_public(path)
+            .map(Some)
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -270,7 +275,11 @@ fn collect_files(input: &str) -> Result<Vec<ax::InputFile>, String> {
     let base = PathBuf::from(input);
     if base.is_file() {
         let name = base.file_name().unwrap().to_string_lossy().to_string();
-        return Ok(vec![ax::InputFile { rel_path: name, abs_path: base, mode: 0 }]);
+        return Ok(vec![ax::InputFile {
+            rel_path: name,
+            abs_path: base,
+            mode: 0,
+        }]);
     }
     if !base.is_dir() {
         return Err("cartella o file di input non valido".into());
@@ -335,7 +344,10 @@ enum Pick {
 }
 
 fn label(ui: &mut egui::Ui, text: &str) {
-    ui.add_sized([LABEL_W, 22.0], egui::Label::new(egui::RichText::new(text).color(TEXT_DIM)));
+    ui.add_sized(
+        [LABEL_W, 22.0],
+        egui::Label::new(egui::RichText::new(text).color(TEXT_DIM)),
+    );
 }
 
 fn path_row(ui: &mut egui::Ui, text: &str, value: &mut String, pick: Pick) {
@@ -358,7 +370,11 @@ fn path_row(ui: &mut egui::Ui, text: &str, value: &mut String, pick: Pick) {
 fn pw_row(ui: &mut egui::Ui, text: &str, value: &mut String) {
     ui.horizontal(|ui| {
         label(ui, text);
-        ui.add(egui::TextEdit::singleline(value).password(true).desired_width(FIELD_W));
+        ui.add(
+            egui::TextEdit::singleline(value)
+                .password(true)
+                .desired_width(FIELD_W),
+        );
     });
 }
 
@@ -366,8 +382,15 @@ fn pw_row(ui: &mut egui::Ui, text: &str, value: &mut String) {
 fn pw_row_reveal(ui: &mut egui::Ui, text: &str, value: &mut String, reveal: &mut bool) {
     ui.horizontal(|ui| {
         label(ui, text);
-        ui.add(egui::TextEdit::singleline(value).password(!*reveal).desired_width(FIELD_W));
-        if ui.button(if *reveal { "Nascondi" } else { "Mostra" }).clicked() {
+        ui.add(
+            egui::TextEdit::singleline(value)
+                .password(!*reveal)
+                .desired_width(FIELD_W),
+        );
+        if ui
+            .button(if *reveal { "Nascondi" } else { "Mostra" })
+            .clicked()
+        {
             *reveal = !*reveal;
         }
     });
@@ -394,10 +417,15 @@ fn strength_bar(ui: &mut egui::Ui, pw: &str) {
         p.rect_filled(rect, Rounding::same(4.0), WIDGET);
         let frac = (bits / 128.0).clamp(0.0, 1.0) as f32;
         if frac > 0.0 {
-            let filled = egui::Rect::from_min_size(rect.min, egui::vec2(rect.width() * frac, rect.height()));
+            let filled =
+                egui::Rect::from_min_size(rect.min, egui::vec2(rect.width() * frac, rect.height()));
             p.rect_filled(filled, Rounding::same(4.0), color);
         }
-        ui.label(egui::RichText::new(format!("{lbl} · {:.0} bit", bits)).small().color(color));
+        ui.label(
+            egui::RichText::new(format!("{lbl} · {:.0} bit", bits))
+                .small()
+                .color(color),
+        );
     });
 }
 
@@ -406,7 +434,11 @@ fn password_generator(ui: &mut egui::Ui, g: &mut GenState) -> Option<String> {
     let mut chosen = None;
     ui.horizontal(|ui| {
         ui.add_space(LABEL_W);
-        let txt = if g.open { "▾ Generatore password" } else { "▸ Generatore password" };
+        let txt = if g.open {
+            "▾ Generatore password"
+        } else {
+            "▸ Generatore password"
+        };
         if ui.button(egui::RichText::new(txt).color(ORANGE)).clicked() {
             g.open = !g.open;
         }
@@ -419,7 +451,11 @@ fn password_generator(ui: &mut egui::Ui, g: &mut GenState) -> Option<String> {
         .stroke(Stroke::new(1.0_f32, BORDER))
         .rounding(Rounding::same(6.0))
         .inner_margin(egui::Margin::same(10.0))
-        .outer_margin(egui::Margin { left: LABEL_W, bottom: 4.0, ..Default::default() })
+        .outer_margin(egui::Margin {
+            left: LABEL_W,
+            bottom: 4.0,
+            ..Default::default()
+        })
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new("Lunghezza").color(TEXT_DIM));
@@ -445,7 +481,10 @@ fn password_generator(ui: &mut egui::Ui, g: &mut GenState) -> Option<String> {
                     g.reveal = true;
                 }
                 if !g.value.is_empty() {
-                    if ui.button(if g.reveal { "Nascondi" } else { "Mostra" }).clicked() {
+                    if ui
+                        .button(if g.reveal { "Nascondi" } else { "Mostra" })
+                        .clicked()
+                    {
                         g.reveal = !g.reveal;
                     }
                     if ui.button("Copia").clicked() {
@@ -466,7 +505,11 @@ fn password_generator(ui: &mut egui::Ui, g: &mut GenState) -> Option<String> {
                 ui.label(egui::RichText::new(shown).monospace().color(TEXT));
                 let bits = ax::estimate_entropy(&g.value);
                 let color = if bits < 80.0 { AMBER } else { GREEN };
-                ui.label(egui::RichText::new(format!("robustezza: {:.0} bit", bits)).small().color(color));
+                ui.label(
+                    egui::RichText::new(format!("robustezza: {:.0} bit", bits))
+                        .small()
+                        .color(color),
+                );
             }
         });
     chosen
@@ -485,7 +528,10 @@ fn card(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
             color: Color32::from_black_alpha(90),
         })
         .inner_margin(egui::Margin::same(16.0))
-        .outer_margin(egui::Margin { bottom: 12.0, ..Default::default() })
+        .outer_margin(egui::Margin {
+            bottom: 12.0,
+            ..Default::default()
+        })
         .show(ui, |ui| {
             ui.label(egui::RichText::new(title).size(16.0).strong().color(ORANGE));
             let (rect, _) = ui.allocate_exact_size(egui::vec2(44.0, 3.0), egui::Sense::hover());
@@ -496,10 +542,15 @@ fn card(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
 }
 
 fn action(ui: &mut egui::Ui, text: &str) -> bool {
-    let btn = egui::Button::new(egui::RichText::new(text).strong().color(Color32::from_rgb(20, 20, 20)))
-        .fill(ORANGE)
-        .rounding(Rounding::same(6.0));
-    ui.add_sized([ui.available_width().min(220.0), 32.0], btn).clicked()
+    let btn = egui::Button::new(
+        egui::RichText::new(text)
+            .strong()
+            .color(Color32::from_rgb(20, 20, 20)),
+    )
+    .fill(ORANGE)
+    .rounding(Rounding::same(6.0));
+    ui.add_sized([ui.available_width().min(220.0), 32.0], btn)
+        .clicked()
 }
 
 impl eframe::App for App {
@@ -512,11 +563,24 @@ impl eframe::App for App {
         egui::SidePanel::left("side")
             .resizable(false)
             .exact_width(176.0)
-            .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::same(16.0)))
+            .frame(
+                egui::Frame::none()
+                    .fill(PANEL)
+                    .inner_margin(egui::Margin::same(16.0)),
+            )
             .show(ctx, |ui| {
                 ui.add_space(4.0);
-                ui.label(egui::RichText::new("AXCrypt").size(24.0).strong().color(ORANGE));
-                ui.label(egui::RichText::new("archiviatore cifrato").size(11.0).color(TEXT_DIM));
+                ui.label(
+                    egui::RichText::new("AXCrypt")
+                        .size(24.0)
+                        .strong()
+                        .color(ORANGE),
+                );
+                ui.label(
+                    egui::RichText::new("archiviatore cifrato")
+                        .size(11.0)
+                        .color(TEXT_DIM),
+                );
                 ui.add_space(20.0);
                 self.tab_button(ui, Tab::Pack, "Crea archivio");
                 self.tab_button(ui, Tab::Unpack, "Estrai");
@@ -525,7 +589,11 @@ impl eframe::App for App {
             });
 
         egui::TopBottomPanel::bottom("status")
-            .frame(egui::Frame::none().fill(PANEL).inner_margin(egui::Margin::symmetric(16.0, 9.0)))
+            .frame(
+                egui::Frame::none()
+                    .fill(PANEL)
+                    .inner_margin(egui::Margin::symmetric(16.0, 9.0)),
+            )
             .show(ctx, |ui| {
                 ui.horizontal(|ui| {
                     if self.busy {
@@ -537,7 +605,11 @@ impl eframe::App for App {
             });
 
         egui::CentralPanel::default()
-            .frame(egui::Frame::none().fill(BG).inner_margin(egui::Margin::same(18.0)))
+            .frame(
+                egui::Frame::none()
+                    .fill(BG)
+                    .inner_margin(egui::Margin::same(18.0)),
+            )
             .show(ctx, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui.add_enabled_ui(!self.busy, |ui| match self.tab {
@@ -561,7 +633,11 @@ impl App {
         };
         let btn = egui::Button::new(rich)
             .fill(if selected { CARD } else { PANEL })
-            .stroke(if selected { Stroke::new(1.0_f32, ORANGE) } else { Stroke::NONE })
+            .stroke(if selected {
+                Stroke::new(1.0_f32, ORANGE)
+            } else {
+                Stroke::NONE
+            })
             .rounding(Rounding::same(6.0));
         if ui.add_sized([ui.available_width(), 34.0], btn).clicked() {
             self.tab = tab;
@@ -615,16 +691,29 @@ impl App {
                     let secret = load_secret(&keyfile, &pw)?;
                     let files = collect_files(&input)?;
                     let outp = PathBuf::from(&output);
-                    let stats = ax::pack_to_file(&files, &outp, &secret, &sk, level, &ax::ArgonParams::strong())
-                        .map_err(|e| e.to_string())?;
+                    let stats = ax::pack_to_file(
+                        &files,
+                        &outp,
+                        &secret,
+                        &sk,
+                        level,
+                        &ax::ArgonParams::strong(),
+                    )
+                    .map_err(|e| e.to_string())?;
                     let mut msg = format!(
                         "Archivio creato: {} file, {} blocchi, {} → {} byte.",
-                        files.len(), stats.chunk_count, stats.orig_size, stats.archive_size
+                        files.len(),
+                        stats.chunk_count,
+                        stats.orig_size,
+                        stats.archive_size
                     );
                     if make_rec {
                         let rec = PathBuf::from(format!("{output}.rec"));
                         let rs = ax::protect(&outp, &rec, redundancy).map_err(|e| e.to_string())?;
-                        msg.push_str(&format!(" Recovery: {} blocchi di parità.", rs.parity_count));
+                        msg.push_str(&format!(
+                            " Recovery: {} blocchi di parità.",
+                            rs.parity_count
+                        ));
                     }
                     Ok(msg)
                 });
@@ -652,8 +741,13 @@ impl App {
                     let secret = load_secret(&keyfile, &pw)?;
                     let trusted = load_trust(&trust)?;
                     fs::create_dir_all(&outdir).map_err(|e| e.to_string())?;
-                    let w = ax::unpack_file(&PathBuf::from(&archive), &secret, trusted.as_ref(), &PathBuf::from(&outdir))
-                        .map_err(|e| e.to_string())?;
+                    let w = ax::unpack_file(
+                        &PathBuf::from(&archive),
+                        &secret,
+                        trusted.as_ref(),
+                        &PathBuf::from(&outdir),
+                    )
+                    .map_err(|e| e.to_string())?;
                     Ok(format!("Estratti {} file in {}", w.len(), outdir))
                 });
             }
@@ -670,7 +764,8 @@ impl App {
                     let sk = ax::identity::generate();
                     ax::identity::save_identity(&out, &sk).map_err(|e| e.to_string())?;
                     let pubp = format!("{out}.pub");
-                    ax::identity::save_public(&PathBuf::from(&pubp), &sk.verifying_key()).map_err(|e| e.to_string())?;
+                    ax::identity::save_public(&PathBuf::from(&pubp), &sk.verifying_key())
+                        .map_err(|e| e.to_string())?;
                     Ok(format!("Identità creata: {out} (+ {pubp})"))
                 });
             }
@@ -702,8 +797,11 @@ impl App {
             ui.add_space(8.0);
             if action(ui, "Cambia password") {
                 let (archive, keyfile, oldpw, newpw, newpw2) = (
-                    self.cp_archive.clone(), self.cp_keyfile.clone(),
-                    self.cp_oldpw.clone(), self.cp_newpw.clone(), self.cp_newpw2.clone(),
+                    self.cp_archive.clone(),
+                    self.cp_keyfile.clone(),
+                    self.cp_oldpw.clone(),
+                    self.cp_newpw.clone(),
+                    self.cp_newpw2.clone(),
                 );
                 self.run_task(move || {
                     if newpw != newpw2 {
@@ -711,8 +809,13 @@ impl App {
                     }
                     let old = load_secret(&keyfile, &oldpw)?;
                     let new = load_secret(&keyfile, &newpw)?;
-                    ax::changepw(&PathBuf::from(&archive), &old, &new, &ax::ArgonParams::strong())
-                        .map_err(|e| e.to_string())?;
+                    ax::changepw(
+                        &PathBuf::from(&archive),
+                        &old,
+                        &new,
+                        &ax::ArgonParams::strong(),
+                    )
+                    .map_err(|e| e.to_string())?;
                     Ok("Password aggiornata (dati non ricompressi).".into())
                 });
             }
@@ -727,14 +830,21 @@ impl App {
             ui.add_space(8.0);
             if action(ui, "Aggiungi chiave") {
                 let (archive, keyfile, existpw, newpw) = (
-                    self.ak_archive.clone(), self.ak_keyfile.clone(),
-                    self.ak_existpw.clone(), self.ak_newpw.clone(),
+                    self.ak_archive.clone(),
+                    self.ak_keyfile.clone(),
+                    self.ak_existpw.clone(),
+                    self.ak_newpw.clone(),
                 );
                 self.run_task(move || {
                     let existing = load_secret(&keyfile, &existpw)?;
                     let newsec = load_secret(&keyfile, &newpw)?;
-                    ax::addkey(&PathBuf::from(&archive), &existing, &newsec, &ax::ArgonParams::strong())
-                        .map_err(|e| e.to_string())?;
+                    ax::addkey(
+                        &PathBuf::from(&archive),
+                        &existing,
+                        &newsec,
+                        &ax::ArgonParams::strong(),
+                    )
+                    .map_err(|e| e.to_string())?;
                     Ok("Nuova chiave d'accesso aggiunta.".into())
                 });
             }
@@ -748,13 +858,16 @@ impl App {
             ui.add_space(8.0);
             if action(ui, "Rimuovi chiave") {
                 let (archive, keyfile, authpw, targetpw) = (
-                    self.rk_archive.clone(), self.rk_keyfile.clone(),
-                    self.rk_authpw.clone(), self.rk_targetpw.clone(),
+                    self.rk_archive.clone(),
+                    self.rk_keyfile.clone(),
+                    self.rk_authpw.clone(),
+                    self.rk_targetpw.clone(),
                 );
                 self.run_task(move || {
                     let existing = load_secret(&keyfile, &authpw)?;
                     let target = load_secret(&keyfile, &targetpw)?;
-                    ax::rmkey(&PathBuf::from(&archive), &existing, &target).map_err(|e| e.to_string())?;
+                    ax::rmkey(&PathBuf::from(&archive), &existing, &target)
+                        .map_err(|e| e.to_string())?;
                     Ok("Chiave d'accesso rimossa.".into())
                 });
             }
@@ -773,7 +886,8 @@ impl App {
                 let (archive, red) = (self.pr_archive.clone(), self.pr_redundancy);
                 self.run_task(move || {
                     let rec = PathBuf::from(format!("{archive}.rec"));
-                    let rs = ax::protect(&PathBuf::from(&archive), &rec, red).map_err(|e| e.to_string())?;
+                    let rs = ax::protect(&PathBuf::from(&archive), &rec, red)
+                        .map_err(|e| e.to_string())?;
                     Ok(format!(
                         "Recovery record: {} blocchi dati + {} parità (tollera {} danneggiati).",
                         rs.data_count, rs.parity_count, rs.parity_count
@@ -788,7 +902,11 @@ impl App {
             path_row(ui, "Uscita riparata", &mut self.rp_out, Pick::Save);
             ui.add_space(8.0);
             if action(ui, "Ripara") {
-                let (archive, rec, out) = (self.rp_archive.clone(), self.rp_rec.clone(), self.rp_out.clone());
+                let (archive, rec, out) = (
+                    self.rp_archive.clone(),
+                    self.rp_rec.clone(),
+                    self.rp_out.clone(),
+                );
                 self.run_task(move || {
                     let rec_path = if rec.trim().is_empty() {
                         PathBuf::from(format!("{archive}.rec"))
@@ -800,11 +918,16 @@ impl App {
                     } else {
                         PathBuf::from(&out)
                     };
-                    let r = ax::repair(&PathBuf::from(&archive), &rec_path, &out_path).map_err(|e| e.to_string())?;
+                    let r = ax::repair(&PathBuf::from(&archive), &rec_path, &out_path)
+                        .map_err(|e| e.to_string())?;
                     if r.already_ok {
                         Ok("Archivio già integro: nessuna riparazione necessaria.".into())
                     } else {
-                        Ok(format!("Riparati {} blocchi. Risultato: {}", r.repaired, out_path.display()))
+                        Ok(format!(
+                            "Riparati {} blocchi. Risultato: {}",
+                            r.repaired,
+                            out_path.display()
+                        ))
                     }
                 });
             }

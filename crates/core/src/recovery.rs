@@ -64,9 +64,9 @@ fn choose_params(len: usize, redundancy_pct: u32) -> Result<(usize, usize, usize
         ));
     }
     let len = len.max(1);
-    let data_count = len.min(MAX_DATA).max(1);
+    let data_count = len.clamp(1, MAX_DATA);
     let block_size = len.div_ceil(data_count);
-    let mut parity_count = ((data_count * redundancy_pct as usize) + 99) / 100;
+    let mut parity_count = (data_count * redundancy_pct as usize).div_ceil(100);
     parity_count = parity_count.max(1);
     if data_count + parity_count > 255 {
         parity_count = 255 - data_count;
@@ -187,7 +187,10 @@ pub fn repair(archive: &Path, rec: &Path, out: &Path) -> Result<RepairReport> {
     }
 
     if corrupt > pc {
-        return Err(AxError::RecoveryTooDamaged { corrupt, parity: pc });
+        return Err(AxError::RecoveryTooDamaged {
+            corrupt,
+            parity: pc,
+        });
     }
 
     let rs = ReedSolomon::new(dc, pc).map_err(|e| AxError::RecoveryParams(e.to_string()))?;
@@ -195,8 +198,8 @@ pub fn repair(archive: &Path, rec: &Path, out: &Path) -> Result<RepairReport> {
         .map_err(|e| AxError::RecoveryParams(e.to_string()))?;
 
     let mut repaired = Vec::with_capacity(dc * bs);
-    for i in 0..dc {
-        repaired.extend_from_slice(shards[i].as_ref().ok_or(AxError::RecoveryMismatch)?);
+    for shard in shards.iter().take(dc) {
+        repaired.extend_from_slice(shard.as_ref().ok_or(AxError::RecoveryMismatch)?);
     }
     repaired.truncate(meta.orig_len as usize);
 

@@ -182,11 +182,7 @@ pub fn compute_mac(mfk: &[u8; 32], slots_bytes: &[u8]) -> [u8; 32] {
 
 /// Prova ad aprire la regione con il segreto: restituisce (MFK, indice slot).
 /// Verifica anche il MAC della lista slot.
-pub fn open_region(
-    region: &[u8],
-    secret: &Secret,
-    core_body: &[u8],
-) -> Result<([u8; 32], usize)> {
+pub fn open_region(region: &[u8], secret: &Secret, core_body: &[u8]) -> Result<([u8; 32], usize)> {
     let slots = parse_slots(region)?;
     for (i, slot) in slots.iter().enumerate() {
         if !slot.used {

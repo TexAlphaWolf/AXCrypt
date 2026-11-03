@@ -165,7 +165,14 @@ pub fn pack_to_file(
     debug_assert_eq!(ctx.offset, slot_region_start);
 
     // regione keyslot (NON firmata)
-    let slot0 = keyslot::wrap_slot(&mfk, secret, argon.mem_kib, argon.iters, argon.lanes, &core_body)?;
+    let slot0 = keyslot::wrap_slot(
+        &mfk,
+        secret,
+        argon.mem_kib,
+        argon.iters,
+        argon.lanes,
+        &core_body,
+    )?;
     let mut slots: [KeySlot; MAX_SLOTS] = std::array::from_fn(|_| KeySlot::empty());
     slots[0] = slot0;
     let region = keyslot::serialize_region(&slots, &mfk);
@@ -197,11 +204,27 @@ pub fn pack_to_file(
             if is_new {
                 batch.push((index, cd.data));
                 if batch.len() >= BATCH {
-                    flush_batch(&mut ctx, &mut batch, &data_keys.data_key, &core_body, &archive_id, zstd_level, &mut chunk_offsets)?;
+                    flush_batch(
+                        &mut ctx,
+                        &mut batch,
+                        &data_keys.data_key,
+                        &core_body,
+                        &archive_id,
+                        zstd_level,
+                        &mut chunk_offsets,
+                    )?;
                 }
             }
         }
-        flush_batch(&mut ctx, &mut batch, &data_keys.data_key, &core_body, &archive_id, zstd_level, &mut chunk_offsets)?;
+        flush_batch(
+            &mut ctx,
+            &mut batch,
+            &data_keys.data_key,
+            &core_body,
+            &archive_id,
+            zstd_level,
+            &mut chunk_offsets,
+        )?;
 
         total_orig += size;
         entries.push(FileEntry {
@@ -216,10 +239,18 @@ pub fn pack_to_file(
 
     // indice cifrato (con la tabella offset)
     let index_off = ctx.offset;
-    let index_pt = IndexPlaintext { entries, chunk_offsets };
+    let index_pt = IndexPlaintext {
+        entries,
+        chunk_offsets,
+    };
     let index_bytes = bincode::serialize(&index_pt)?;
     let inonce = crypto::random_nonce();
-    let index_ct = crypto::seal(&data_keys.index_key, &inonce, &aad_index(&core_body), &index_bytes)?;
+    let index_ct = crypto::seal(
+        &data_keys.index_key,
+        &inonce,
+        &aad_index(&core_body),
+        &index_bytes,
+    )?;
     let rec_start = ctx.offset;
     ctx.hashed(&inonce)?;
     ctx.hashed(&(index_ct.len() as u32).to_le_bytes())?;
@@ -338,7 +369,12 @@ pub fn verify_signature_file(path: &Path, trusted: Option<&[u8; 32]>) -> Result<
 
     let mut hasher = blake3::Hasher::new();
     hash_range(&mut f, &mut hasher, 0, core.slot_region_start)?;
-    hash_range(&mut f, &mut hasher, core.slot_region_start + core.slot_region_len, sig_start)?;
+    hash_range(
+        &mut f,
+        &mut hasher,
+        core.slot_region_start + core.slot_region_len,
+        sig_start,
+    )?;
     let digest = *hasher.finalize().as_bytes();
     crypto::verify(&core.signer_pubkey, &digest, &sig)?;
     Ok(core)
@@ -360,7 +396,11 @@ fn open_archive(path: &Path, secret: &Secret, trusted: Option<&[u8; 32]>) -> Res
     let mut f = File::open(path)?;
     let (_c, core_body) = CoreHeader::read_from(&mut f)?;
 
-    let region = read_at(&mut f, core.slot_region_start, core.slot_region_len as usize)?;
+    let region = read_at(
+        &mut f,
+        core.slot_region_start,
+        core.slot_region_len as usize,
+    )?;
     let (mut mfk, opened) = keyslot::open_region(&region, secret, &core_body)?;
     let slots = keyslot::parse_slots(&region)?;
     let slots_used = keyslot::used_count(&slots);
@@ -388,7 +428,11 @@ fn open_archive(path: &Path, secret: &Secret, trusted: Option<&[u8; 32]>) -> Res
 }
 
 /// Legge header, footer e indice (per list/info).
-pub fn read_index_file(path: &Path, secret: &Secret, trusted: Option<&[u8; 32]>) -> Result<ArchiveInfo> {
+pub fn read_index_file(
+    path: &Path,
+    secret: &Secret,
+    trusted: Option<&[u8; 32]>,
+) -> Result<ArchiveInfo> {
     let o = open_archive(path, secret, trusted)?;
     Ok(ArchiveInfo {
         header: o.core,
@@ -494,7 +538,14 @@ pub fn changepw(path: &Path, old: &Secret, new: &Secret, argon: &ArgonParams) ->
     let mut of = open_rw(path)?;
     let (mut mfk, idx) = keyslot::open_region(&of.region, old, &of.core_body)?;
     let mut slots = keyslot::parse_slots(&of.region)?;
-    slots[idx] = keyslot::wrap_slot(&mfk, new, argon.mem_kib, argon.iters, argon.lanes, &of.core_body)?;
+    slots[idx] = keyslot::wrap_slot(
+        &mfk,
+        new,
+        argon.mem_kib,
+        argon.iters,
+        argon.lanes,
+        &of.core_body,
+    )?;
     let region = keyslot::serialize_region(&slots, &mfk);
     mfk.zeroize();
     write_region(&mut of, &region)
@@ -506,7 +557,14 @@ pub fn addkey(path: &Path, existing: &Secret, newsec: &Secret, argon: &ArgonPara
     let (mut mfk, _) = keyslot::open_region(&of.region, existing, &of.core_body)?;
     let mut slots = keyslot::parse_slots(&of.region)?;
     let free = keyslot::first_free(&slots).ok_or(AxError::SlotFull)?;
-    slots[free] = keyslot::wrap_slot(&mfk, newsec, argon.mem_kib, argon.iters, argon.lanes, &of.core_body)?;
+    slots[free] = keyslot::wrap_slot(
+        &mfk,
+        newsec,
+        argon.mem_kib,
+        argon.iters,
+        argon.lanes,
+        &of.core_body,
+    )?;
     let region = keyslot::serialize_region(&slots, &mfk);
     mfk.zeroize();
     write_region(&mut of, &region)
