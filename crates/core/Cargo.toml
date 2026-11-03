@@ -23,4 +23,4 @@ zeroize = { workspace = true }
 rand = { workspace = true }
 thiserror = { workspace = true }
 rayon = { workspace = true }
-reed-solomon-erasure = { workspace = true }
+reed-solomon-simd = { workspace = true }

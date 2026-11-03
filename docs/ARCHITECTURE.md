@@ -60,6 +60,7 @@ Ed25519 sull'intero file.
 | `blake3`            | hash + keyed-hash + derive_key|
 | `ed25519-dalek`     | firma                         |
 | `fastcdc`           | chunking content-defined      |
+| `reed-solomon-simd` | parità del recovery record    |
 | `bincode` + `serde` | serializzazione indice/header |
 | `zeroize`           | azzeramento chiavi in memoria |
 | `rand`              | sali, nonce, generazione chiavi|
@@ -88,11 +89,18 @@ assoluto.
 ## Recovery record (.rec)
 
 Sidecar separato dall'archivio (che resta intatto e firmato). L'archivio è
-diviso in `data_count` blocchi (max 200); si calcolano `parity_count` blocchi di
-parità Reed-Solomon (GF(2^8), data+parità ≤ 255) e un hash breve per blocco. In
+diviso in `data_count` blocchi (fino a 1024, di dimensione pari); si calcolano
+`parity_count` blocchi di parità Reed-Solomon con `reed-solomon-simd` (GF(2^16),
+codifica O(n log n)) e un hash breve (BLAKE3, 16 byte) per ogni blocco. In
 `repair` i blocchi con hash non combaciante sono trattati come "cancellati" e
-ricostruiti dalla parità, finché i blocchi corrotti sono ≤ parità. `protect`/
-`repair` lavorano in memoria (a differenza di pack/unpack).
+ricostruiti dalla parità, finché i blocchi dati danneggiati sono al massimo
+quanti i blocchi di parità rimasti integri. Blocchi più piccoli rendono più
+"economici" i danni sparsi: ogni blocco danneggiato consuma un blocco di parità.
+
+Formato `.rec` v2 (magic `AXCREC2`). I `.rec` v1, creati con la vecchia libreria
+`reed-solomon-erasure`, vengono rifiutati: rigenerali con `protect`. Gli archivi
+`.axc` non cambiano. `protect`/`repair` lavorano in memoria (a differenza di
+pack/unpack).
 
 > Nota: lo strumento `cargo run --release --example bench_mem -p axcrypt-core`
 > misura il picco di RAM del pack, utile per verificare lo streaming.

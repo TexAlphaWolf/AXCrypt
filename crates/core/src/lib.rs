@@ -384,6 +384,71 @@ mod tests {
     }
 
     #[test]
+    fn recovery_danni_anche_nella_parita() {
+        let dir = tmpdir();
+        let sec = secret("pw", Some(make_keyfile(32)));
+        let (axc, trusted, files, _s) = pack_sample(&dir, &sec);
+        let pristine = fs::read(&axc).unwrap();
+        let rec = dir.join("a.axc.rec");
+        protect(&axc, &rec, 20).unwrap();
+
+        // danneggia 10 punti dell'archivio...
+        let mut bytes = pristine.clone();
+        let step = bytes.len() / 12;
+        for k in 1..=10 {
+            bytes[k * step] ^= 0x5A;
+        }
+        fs::write(&axc, &bytes).unwrap();
+        // ...e 3 punti nella parità del .rec (in coda al file)
+        let mut rbytes = fs::read(&rec).unwrap();
+        let n = rbytes.len();
+        for k in 1..=3 {
+            rbytes[n - k * 97] ^= 0xFF;
+        }
+        fs::write(&rec, &rbytes).unwrap();
+
+        let out = dir.join("riparato.axc");
+        let report = repair(&axc, &rec, &out).unwrap();
+        assert!(report.repaired >= 1);
+        assert_eq!(fs::read(&out).unwrap(), pristine);
+        let dest = dir.join("estratti");
+        fs::create_dir_all(&dest).unwrap();
+        unpack_file(&out, &sec, Some(&trusted), &dest).unwrap();
+        compare_extracted(&dest, &files);
+    }
+
+    #[test]
+    fn recovery_archivio_troncato() {
+        let dir = tmpdir();
+        let sec = secret("pw", Some(make_keyfile(32)));
+        let (axc, _t, _f, _s) = pack_sample(&dir, &sec);
+        let pristine = fs::read(&axc).unwrap();
+        let rec = dir.join("a.axc.rec");
+        protect(&axc, &rec, 10).unwrap();
+
+        // copia interrotta: mancano gli ultimi 1000 byte
+        fs::write(&axc, &pristine[..pristine.len() - 1000]).unwrap();
+        let out = dir.join("riparato.axc");
+        repair(&axc, &rec, &out).unwrap();
+        assert_eq!(fs::read(&out).unwrap(), pristine);
+    }
+
+    #[test]
+    fn recovery_rec_v1_rifiutato() {
+        let dir = tmpdir();
+        let sec = secret("pw", Some(make_keyfile(32)));
+        let (axc, _t, _f, _s) = pack_sample(&dir, &sec);
+        let rec = dir.join("vecchio.rec");
+        let mut fake = b"AXCREC1\0".to_vec();
+        fake.extend_from_slice(&[0u8; 64]);
+        fs::write(&rec, &fake).unwrap();
+        assert!(matches!(
+            repair(&axc, &rec, &dir.join("x.axc")),
+            Err(AxError::RecoveryBadMagic)
+        ));
+    }
+
+    #[test]
     fn file_grande_un_solo_file() {
         // un singolo file da ~30 MB: verifica il percorso a streaming e la
         // ricostruzione via tabella offset.

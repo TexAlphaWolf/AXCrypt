@@ -119,6 +119,9 @@ Il `.rec` è un file separato: tienilo accanto all'archivio (o su un altro
 supporto). L'archivio resta intatto e la firma valida. Più alta la ridondanza,
 più danni tollera, più grande il `.rec`.
 
+Nota: dalla 0.5.1 il formato `.rec` è alla versione 2. Un `.rec` creato con la
+0.5.0 viene rifiutato: rigeneralo con `axcrypt protect` (l'archivio non cambia).
+
 ## Sicurezza — cosa garantisce e cosa no
 
 - **Riservatezza + integrità** di dati e metadati (nomi file inclusi): AEAD.

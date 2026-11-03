@@ -4,22 +4,26 @@
 //! `data_count` blocchi; si calcolano `parity_count` blocchi di parità e, per
 //! ogni blocco, un hash breve. Se alcuni blocchi dell'archivio si danneggiano,
 //! `repair` li individua confrontando gli hash (trattandoli come "cancellati")
-//! e li ricostruisce dalla parità, finché i blocchi corrotti sono ≤ parità.
+//! e li ricostruisce dalla parità, finché i blocchi dati danneggiati sono al
+//! massimo quanti i blocchi di parità rimasti integri.
 //!
-//! Il file `.rec` è separato: l'archivio resta intatto (firma valida). Reed-
-//! Solomon in GF(2^8): data+parità ≤ 255 blocchi totali.
+//! Il file `.rec` è separato: l'archivio resta intatto (firma valida).
+//! Libreria: `reed-solomon-simd` (codifica Reed-Solomon in GF(2^16), O(n log n)).
+//! Formato `.rec` v2: i `.rec` v1 (vecchia libreria) vanno rigenerati con
+//! `protect`.
 
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use reed_solomon_erasure::galois_8::ReedSolomon;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{AxError, Result};
 
-const REC_MAGIC: [u8; 8] = *b"AXCREC1\0";
-const MAX_DATA: usize = 200; // lascia spazio alla parità entro i 255 totali
+const REC_MAGIC: [u8; 8] = *b"AXCREC2\0";
+/// Numero massimo di blocchi dati: più blocchi = danni sparsi più economici
+/// da riparare (ogni blocco danneggiato consuma un blocco di parità).
+const MAX_DATA: usize = 1024;
 
 #[derive(Serialize, Deserialize)]
 struct RecMeta {
@@ -42,7 +46,7 @@ pub struct RecoveryStats {
 
 /// Esito di una riparazione.
 pub struct RepairReport {
-    /// Numero di blocchi ricostruiti (0 = archivio già integro).
+    /// Numero di blocchi dati ricostruiti (0 = archivio già integro).
     pub repaired: usize,
     pub already_ok: bool,
     pub data_count: usize,
@@ -56,7 +60,12 @@ fn hash16(b: &[u8]) -> [u8; 16] {
     out
 }
 
+fn rs_err(e: impl std::fmt::Display) -> AxError {
+    AxError::RecoveryParams(e.to_string())
+}
+
 /// Sceglie (data_count, parity_count, block_size) per una certa ridondanza %.
+/// La dimensione dei blocchi è pari (vincolo della libreria Reed-Solomon).
 fn choose_params(len: usize, redundancy_pct: u32) -> Result<(usize, usize, usize)> {
     if redundancy_pct == 0 || redundancy_pct > 100 {
         return Err(AxError::RecoveryParams(
@@ -65,12 +74,8 @@ fn choose_params(len: usize, redundancy_pct: u32) -> Result<(usize, usize, usize
     }
     let len = len.max(1);
     let data_count = len.clamp(1, MAX_DATA);
-    let block_size = len.div_ceil(data_count);
-    let mut parity_count = (data_count * redundancy_pct as usize).div_ceil(100);
-    parity_count = parity_count.max(1);
-    if data_count + parity_count > 255 {
-        parity_count = 255 - data_count;
-    }
+    let block_size = len.div_ceil(data_count).next_multiple_of(2).max(2);
+    let parity_count = (data_count * redundancy_pct as usize).div_ceil(100).max(1);
     Ok((data_count, parity_count, block_size))
 }
 
@@ -83,17 +88,10 @@ pub fn protect(archive: &Path, rec_out: &Path, redundancy_pct: u32) -> Result<Re
     let (data_count, parity_count, block_size) = choose_params(data.len(), redundancy_pct)?;
     data.resize(data_count * block_size, 0); // padding a multiplo di block_size
 
-    let data_shards: Vec<&[u8]> = (0..data_count)
-        .map(|i| &data[i * block_size..(i + 1) * block_size])
-        .collect();
-    let mut parity: Vec<Vec<u8>> = (0..parity_count).map(|_| vec![0u8; block_size]).collect();
+    let parity = reed_solomon_simd::encode(data_count, parity_count, data.chunks(block_size))
+        .map_err(rs_err)?;
 
-    let rs = ReedSolomon::new(data_count, parity_count)
-        .map_err(|e| AxError::RecoveryParams(e.to_string()))?;
-    rs.encode_sep(&data_shards, &mut parity)
-        .map_err(|e| AxError::RecoveryParams(e.to_string()))?;
-
-    let data_hashes: Vec<[u8; 16]> = data_shards.iter().map(|s| hash16(s)).collect();
+    let data_hashes: Vec<[u8; 16]> = data.chunks(block_size).map(hash16).collect();
     let parity_hashes: Vec<[u8; 16]> = parity.iter().map(|p| hash16(p)).collect();
 
     let meta = RecMeta {
@@ -134,9 +132,13 @@ fn read_rec(path: &Path) -> Result<(RecMeta, Vec<u8>)> {
         return Err(AxError::RecoveryBadMagic);
     }
     let meta: RecMeta = bincode::deserialize(&buf[12..12 + mlen])?;
+    let bs = meta.block_size as usize;
+    let consistent = bs >= 2
+        && bs.is_multiple_of(2)
+        && meta.data_hashes.len() == meta.data_count as usize
+        && meta.parity_hashes.len() == meta.parity_count as usize;
     let parity = buf[12 + mlen..].to_vec();
-    let expect = meta.parity_count as usize * meta.block_size as usize;
-    if parity.len() != expect {
+    if !consistent || parity.len() != meta.parity_count as usize * bs {
         return Err(AxError::RecoveryBadMagic);
     }
     Ok((meta, parity))
@@ -164,52 +166,50 @@ pub fn repair(archive: &Path, rec: &Path, out: &Path) -> Result<RepairReport> {
         });
     }
 
-    // individua i blocchi corrotti (hash non combaciante) come "cancellati"
-    let mut shards: Vec<Option<Vec<u8>>> = Vec::with_capacity(dc + pc);
-    let mut corrupt = 0usize;
-    for i in 0..dc {
-        let blk = &data[i * bs..(i + 1) * bs];
-        if hash16(blk) == meta.data_hashes[i] {
-            shards.push(Some(blk.to_vec()));
+    // blocchi dati integri / danneggiati (hash non combaciante = "cancellato")
+    let mut originals: Vec<(usize, &[u8])> = Vec::with_capacity(dc);
+    let mut damaged: Vec<usize> = Vec::new();
+    for (i, (blk, h)) in data.chunks(bs).zip(&meta.data_hashes).enumerate() {
+        if hash16(blk) == *h {
+            originals.push((i, blk));
         } else {
-            shards.push(None);
-            corrupt += 1;
+            damaged.push(i);
         }
     }
-    for j in 0..pc {
-        let blk = &parity_bytes[j * bs..(j + 1) * bs];
-        if hash16(blk) == meta.parity_hashes[j] {
-            shards.push(Some(blk.to_vec()));
-        } else {
-            shards.push(None);
-            corrupt += 1;
-        }
-    }
+    // blocchi di parità integri
+    let recovery: Vec<(usize, &[u8])> = parity_bytes
+        .chunks(bs)
+        .zip(&meta.parity_hashes)
+        .enumerate()
+        .filter(|(_, (blk, h))| hash16(blk) == **h)
+        .map(|(j, (blk, _))| (j, blk))
+        .collect();
 
-    if corrupt > pc {
+    if damaged.is_empty() {
+        // tutti i blocchi combaciano ma l'hash globale no: .rec di un altro archivio
+        return Err(AxError::RecoveryMismatch);
+    }
+    if damaged.len() > recovery.len() {
         return Err(AxError::RecoveryTooDamaged {
-            corrupt,
+            corrupt: damaged.len() + (pc - recovery.len()),
             parity: pc,
         });
     }
 
-    let rs = ReedSolomon::new(dc, pc).map_err(|e| AxError::RecoveryParams(e.to_string()))?;
-    rs.reconstruct(&mut shards)
-        .map_err(|e| AxError::RecoveryParams(e.to_string()))?;
-
-    let mut repaired = Vec::with_capacity(dc * bs);
-    for shard in shards.iter().take(dc) {
-        repaired.extend_from_slice(shard.as_ref().ok_or(AxError::RecoveryMismatch)?);
+    let restored = reed_solomon_simd::decode(dc, pc, originals, recovery).map_err(rs_err)?;
+    for &i in &damaged {
+        let shard = restored.get(&i).ok_or(AxError::RecoveryMismatch)?;
+        data[i * bs..(i + 1) * bs].copy_from_slice(shard);
     }
-    repaired.truncate(meta.orig_len as usize);
+    data.truncate(meta.orig_len as usize);
 
-    if *blake3::hash(&repaired).as_bytes() != meta.archive_hash {
+    if *blake3::hash(&data).as_bytes() != meta.archive_hash {
         return Err(AxError::RecoveryMismatch);
     }
-    fs::write(out, &repaired)?;
+    fs::write(out, &data)?;
 
     Ok(RepairReport {
-        repaired: corrupt,
+        repaired: damaged.len(),
         already_ok: false,
         data_count: dc,
         parity_count: pc,
