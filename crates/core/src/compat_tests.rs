@@ -260,7 +260,10 @@ fn filetime_prima_e_dopo_il_1970() {
     .is_none());
     assert_eq!(
         FileTime::from_system(UNIX_EPOCH + Duration::new(10, 700)),
-        Some(FileTime { secs: 10, nanos: 700 })
+        Some(FileTime {
+            secs: 10,
+            nanos: 700
+        })
     );
 }
 
