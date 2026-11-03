@@ -1,4 +1,4 @@
-﻿name: Security audit
+name: Security audit
 on:
   schedule:
     - cron: "0 6 * * 1"
@@ -13,7 +13,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
