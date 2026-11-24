@@ -337,10 +337,13 @@ impl App {
 
 // ---- widget helper ----
 
+#[derive(Clone, Copy)]
 enum Pick {
     File,
     Folder,
     Save,
+    /// File singolo oppure cartella intera (due pulsanti).
+    Input,
 }
 
 fn label(ui: &mut egui::Ui, text: &str) {
@@ -353,16 +356,38 @@ fn label(ui: &mut egui::Ui, text: &str) {
 fn path_row(ui: &mut egui::Ui, text: &str, value: &mut String, pick: Pick) {
     ui.horizontal(|ui| {
         label(ui, text);
-        ui.add(egui::TextEdit::singleline(value).desired_width(FIELD_W));
-        if ui.button("Sfoglia").clicked() {
-            let chosen = match pick {
-                Pick::File => rfd::FileDialog::new().pick_file(),
-                Pick::Folder => rfd::FileDialog::new().pick_folder(),
-                Pick::Save => rfd::FileDialog::new().save_file(),
-            };
-            if let Some(p) = chosen {
-                *value = p.display().to_string();
+        // Con due pulsanti il campo si accorcia, così la riga resta larga uguale.
+        let width = if matches!(pick, Pick::Input) {
+            FIELD_W - 64.0
+        } else {
+            FIELD_W
+        };
+        ui.add(egui::TextEdit::singleline(value).desired_width(width));
+        let chosen = match pick {
+            Pick::Input => {
+                let mut c = None;
+                if ui.button("File").clicked() {
+                    c = rfd::FileDialog::new().pick_file();
+                }
+                if ui.button("Cartella").clicked() {
+                    c = rfd::FileDialog::new().pick_folder();
+                }
+                c
             }
+            Pick::File | Pick::Folder | Pick::Save => {
+                if ui.button("Sfoglia").clicked() {
+                    match pick {
+                        Pick::File => rfd::FileDialog::new().pick_file(),
+                        Pick::Folder => rfd::FileDialog::new().pick_folder(),
+                        _ => rfd::FileDialog::new().save_file(),
+                    }
+                } else {
+                    None
+                }
+            }
+        };
+        if let Some(p) = chosen {
+            *value = p.display().to_string();
         }
     });
 }
@@ -434,12 +459,29 @@ fn password_generator(ui: &mut egui::Ui, g: &mut GenState) -> Option<String> {
     let mut chosen = None;
     ui.horizontal(|ui| {
         ui.add_space(LABEL_W);
-        let txt = if g.open {
-            "⏷ Generatore password"
-        } else {
-            "⏵ Generatore password"
-        };
-        if ui.button(egui::RichText::new(txt).color(ORANGE)).clicked() {
+        let resp = ui.button(egui::RichText::new("     Generatore password").color(ORANGE));
+        {
+            // Freccia disegnata a mano: non dipende dai font
+            let r = resp.rect;
+            let c = egui::pos2(r.left() + 13.0, r.center().y);
+            let s = 4.0;
+            let pts = if g.open {
+                vec![
+                    egui::pos2(c.x - s, c.y - s * 0.5),
+                    egui::pos2(c.x + s, c.y - s * 0.5),
+                    egui::pos2(c.x, c.y + s * 0.6),
+                ]
+            } else {
+                vec![
+                    egui::pos2(c.x - s * 0.5, c.y - s),
+                    egui::pos2(c.x - s * 0.5, c.y + s),
+                    egui::pos2(c.x + s * 0.6, c.y),
+                ]
+            };
+            ui.painter()
+                .add(egui::Shape::convex_polygon(pts, ORANGE, egui::Stroke::NONE));
+        }
+        if resp.clicked() {
             g.open = !g.open;
         }
     });
@@ -658,7 +700,7 @@ impl App {
 
     fn ui_pack(&mut self, ui: &mut egui::Ui) {
         card(ui, "Crea archivio", |ui| {
-            path_row(ui, "Cartella/file", &mut self.pack_input, Pick::Folder);
+            path_row(ui, "Cartella/file", &mut self.pack_input, Pick::Input);
             path_row(ui, "Archivio (.axc)", &mut self.pack_output, Pick::Save);
             path_row(ui, "Identità (.axid)", &mut self.pack_identity, Pick::File);
             path_row(ui, "Keyfile (USB)", &mut self.pack_keyfile, Pick::File);
